@@ -1,0 +1,30 @@
+{
+  "name": "trace-service",
+  "version": "1.0.0",
+  "description": "Trace processing service",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext .ts"
+  },
+  "keywords": ["trace", "observability"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.1500.0",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.3.3",
+    "ts-node-dev": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0"
+  }
+}
+

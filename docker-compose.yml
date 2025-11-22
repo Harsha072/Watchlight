@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: watchlight-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-watchlight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-watchlight123}
+      POSTGRES_DB: ${POSTGRES_DB:-watchlight}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U watchlight"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: watchlight-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: watchlight-localstack
+    environment:
+      - SERVICES=sns,sqs
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    volumes:
+      - localstack_data:/tmp/localstack
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+volumes:
+  postgres_data:
+  redis_data:
+  localstack_data:
+
