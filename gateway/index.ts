@@ -1,8 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+// Load .env from root directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,8 +25,13 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', service: 'gateway' });
 });
 
-// TODO: Add API routes
-// Routes will be imported from routes/ folder
+// Import routes
+import logsRoutes from './routes/logs';
+import metricsRoutes from './routes/metrics';
+import tracesRoutes from './routes/traces';
+app.use('/', logsRoutes);
+app.use('/', metricsRoutes);
+app.use('/', tracesRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

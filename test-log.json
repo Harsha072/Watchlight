@@ -1,0 +1,11 @@
+{
+  "level": "info",
+  "message": "Test log message from Hopscotch",
+  "service": "test-service",
+  "metadata": {
+    "testId": "test-001",
+    "source": "hopscotch",
+    "timestamp": "2024-11-23T10:30:00Z"
+  }
+}
+
