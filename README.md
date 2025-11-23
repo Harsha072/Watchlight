@@ -108,7 +108,9 @@ SNS Topic ---> SQS Queues
   /infra
     docker-compose.yml    # Local development infrastructure
     env.example           # Environment variables template
-    localstack-setup.sh   # SNS/SQS setup script
+    localstack-setup.sh   # SNS/SQS setup script (Linux/Mac/Git Bash)
+    localstack-setup.js   # SNS/SQS setup script (Cross-platform Node.js)
+    localstack-setup.ps1  # SNS/SQS setup script (Windows PowerShell)
   
   /frontend
     /pages           # Next.js pages
@@ -175,6 +177,18 @@ SNS Topic ---> SQS Queues
    - LocalStack on port 4566
 
 5. **Set up LocalStack SNS/SQS**
+   
+   **Option A: Node.js (Cross-platform - Recommended)**
+   ```bash
+   node infra/localstack-setup.js
+   ```
+   
+   **Option B: PowerShell (Windows)**
+   ```powershell
+   .\infra\localstack-setup.ps1
+   ```
+   
+   **Option C: Bash (Linux/Mac/Git Bash)**
    ```bash
    chmod +x infra/localstack-setup.sh
    ./infra/localstack-setup.sh
