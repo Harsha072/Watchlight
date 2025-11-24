@@ -33,10 +33,11 @@ interface MetricMessage {
 }
 
 // Process a single metrics message
-async function processMetricMessage(messageBody: string): Promise<void> {
+// Returns true if message was processed, false if it should be skipped
+async function processMetricMessage(messageBody: string, messageAttributes?: any): Promise<boolean> {
   try {
     // Parse the message body (SNS wraps it, so we need to extract it)
-    let metricData: MetricMessage;
+    let parsedMessage: any;
     
     // First, parse the SQS message body
     const sqsMessage = JSON.parse(messageBody);
@@ -44,14 +45,32 @@ async function processMetricMessage(messageBody: string): Promise<void> {
     // Check if this is an SNS notification (when SNS delivers to SQS)
     if (sqsMessage.Type === 'Notification' && sqsMessage.Message) {
       // This is an SNS notification, extract the actual message
-      metricData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else if (sqsMessage.Message) {
       // Alternative SNS format
-      metricData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else {
       // Direct message (not wrapped in SNS)
-      metricData = sqsMessage;
+      parsedMessage = sqsMessage;
     }
+
+    // Check message type - skip if not a metrics message
+    // Check SNS MessageAttributes first
+    if (sqsMessage.MessageAttributes && sqsMessage.MessageAttributes.type) {
+      const messageType = sqsMessage.MessageAttributes.type.Value || sqsMessage.MessageAttributes.type;
+      if (messageType !== 'metric') {
+        // Not a metrics message, skip it
+        return false;
+      }
+    }
+    
+    // Check message structure - must have 'metrics' field
+    if (!parsedMessage.metrics) {
+      // Not a metrics message, skip it silently
+      return false;
+    }
+
+    const metricData: MetricMessage = parsedMessage;
 
     // Validate required fields
     if (!metricData.timestamp) {
@@ -79,6 +98,7 @@ async function processMetricMessage(messageBody: string): Promise<void> {
     await saveMetricsToDatabase(metricData);
 
     console.log('✅ DB was saved successfully');
+    return true;
   } catch (error: any) {
     console.error('❌ Error processing metrics message:', error.message);
     console.error('   Raw message body:', messageBody.substring(0, 200)); // Show first 200 chars for debugging
@@ -112,6 +132,7 @@ async function saveMetricsToDatabase(metricData: MetricMessage): Promise<void> {
   }
 }
 
+
 // Poll SQS for messages
 async function pollSQS(): Promise<void> {
   const params = {
@@ -131,7 +152,19 @@ async function pollSQS(): Promise<void> {
       for (const message of result.Messages) {
         if (message.Body && message.ReceiptHandle) {
           try {
-            await processMetricMessage(message.Body);
+            const processed = await processMetricMessage(message.Body, message.MessageAttributes);
+            
+            if (!processed) {
+              // Message was skipped (not a metrics message), delete it anyway
+              await sqs
+                .deleteMessage({
+                  QueueUrl: QUEUE_URL,
+                  ReceiptHandle: message.ReceiptHandle,
+                })
+                .promise();
+              // Silently skip - this is expected when SNS fans out to all queues
+              continue;
+            }
 
             // Delete message from queue after successful processing
             await sqs

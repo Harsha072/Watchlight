@@ -25,10 +25,11 @@ interface LogMessage {
 }
 
 // Process a single log message
-async function processLogMessage(messageBody: string): Promise<void> {
+// Returns true if message was processed, false if it should be skipped
+async function processLogMessage(messageBody: string, messageAttributes?: any): Promise<boolean> {
   try {
     // Parse the message body (SNS wraps it, so we need to extract it)
-    let logData: LogMessage;
+    let parsedMessage: any;
     
     // First, parse the SQS message body
     const sqsMessage = JSON.parse(messageBody);
@@ -36,14 +37,32 @@ async function processLogMessage(messageBody: string): Promise<void> {
     // Check if this is an SNS notification (when SNS delivers to SQS)
     if (sqsMessage.Type === 'Notification' && sqsMessage.Message) {
       // This is an SNS notification, extract the actual message
-      logData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else if (sqsMessage.Message) {
       // Alternative SNS format
-      logData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else {
       // Direct message (not wrapped in SNS)
-      logData = sqsMessage;
+      parsedMessage = sqsMessage;
     }
+
+    // Check message type - skip if not a log message
+    // Check SNS MessageAttributes first
+    if (sqsMessage.MessageAttributes && sqsMessage.MessageAttributes.type) {
+      const messageType = sqsMessage.MessageAttributes.type.Value || sqsMessage.MessageAttributes.type;
+      if (messageType !== 'log') {
+        // Not a log message, skip it
+        return false;
+      }
+    }
+    
+    // Check message structure - must have 'level' and 'message' fields (log characteristics)
+    if (!parsedMessage.level && !parsedMessage.message) {
+      // Not a log message, skip it silently
+      return false;
+    }
+
+    const logData: LogMessage = parsedMessage;
 
     // Validate required fields
     if (!logData.timestamp) {
@@ -67,6 +86,7 @@ async function processLogMessage(messageBody: string): Promise<void> {
     await saveLogToDatabase(logData);
 
     console.log('✅ DB was saved successfully');
+    return true;
   } catch (error: any) {
     console.error('❌ Error processing log message:', error.message);
     console.error('   Raw message body:', messageBody.substring(0, 200)); // Show first 200 chars for debugging
@@ -91,6 +111,7 @@ async function saveLogToDatabase(logData: LogMessage): Promise<void> {
   }
 }
 
+
 // Poll SQS for messages
 async function pollSQS(): Promise<void> {
   const params = {
@@ -110,7 +131,19 @@ async function pollSQS(): Promise<void> {
       for (const message of result.Messages) {
         if (message.Body && message.ReceiptHandle) {
           try {
-            await processLogMessage(message.Body);
+            const processed = await processLogMessage(message.Body, message.MessageAttributes);
+            
+            if (!processed) {
+              // Message was skipped (not a log message), delete it anyway
+              await sqs
+                .deleteMessage({
+                  QueueUrl: QUEUE_URL,
+                  ReceiptHandle: message.ReceiptHandle,
+                })
+                .promise();
+              // Silently skip - this is expected when SNS fans out to all queues
+              continue;
+            }
 
             // Delete message from queue after successful processing
             await sqs

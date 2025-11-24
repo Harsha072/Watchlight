@@ -34,10 +34,11 @@ interface TraceMessage {
 }
 
 // Process a single trace message
-async function processTraceMessage(messageBody: string): Promise<void> {
+// Returns true if message was processed, false if it should be skipped
+async function processTraceMessage(messageBody: string, messageAttributes?: any): Promise<boolean> {
   try {
     // Parse the message body (SNS wraps it, so we need to extract it)
-    let traceData: TraceMessage;
+    let parsedMessage: any;
     
     // First, parse the SQS message body
     const sqsMessage = JSON.parse(messageBody);
@@ -45,14 +46,32 @@ async function processTraceMessage(messageBody: string): Promise<void> {
     // Check if this is an SNS notification (when SNS delivers to SQS)
     if (sqsMessage.Type === 'Notification' && sqsMessage.Message) {
       // This is an SNS notification, extract the actual message
-      traceData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else if (sqsMessage.Message) {
       // Alternative SNS format
-      traceData = JSON.parse(sqsMessage.Message);
+      parsedMessage = JSON.parse(sqsMessage.Message);
     } else {
       // Direct message (not wrapped in SNS)
-      traceData = sqsMessage;
+      parsedMessage = sqsMessage;
     }
+
+    // Check message type - skip if not a trace message
+    // Check SNS MessageAttributes first
+    if (sqsMessage.MessageAttributes && sqsMessage.MessageAttributes.type) {
+      const messageType = sqsMessage.MessageAttributes.type.Value || sqsMessage.MessageAttributes.type;
+      if (messageType !== 'trace') {
+        // Not a trace message, skip it
+        return false;
+      }
+    }
+    
+    // Check message structure - must have 'traceId' field
+    if (!parsedMessage.traceId) {
+      // Not a trace message, skip it silently
+      return false;
+    }
+
+    const traceData: TraceMessage = parsedMessage;
 
     // Validate required fields
     if (!traceData.traceId) {
@@ -90,6 +109,7 @@ async function processTraceMessage(messageBody: string): Promise<void> {
     await saveTraceToDatabase(traceData);
 
     console.log(`${statusEmoji} DB was saved successfully`);
+    return true;
   } catch (error: any) {
     console.error('❌ Error processing trace message:', error.message);
     console.error('   Raw message body:', messageBody.substring(0, 200)); // Show first 200 chars for debugging
@@ -118,6 +138,7 @@ async function saveTraceToDatabase(traceData: TraceMessage): Promise<void> {
   }
 }
 
+
 // Poll SQS for messages
 async function pollSQS(): Promise<void> {
   const params = {
@@ -137,7 +158,19 @@ async function pollSQS(): Promise<void> {
       for (const message of result.Messages) {
         if (message.Body && message.ReceiptHandle) {
           try {
-            await processTraceMessage(message.Body);
+            const processed = await processTraceMessage(message.Body, message.MessageAttributes);
+            
+            if (!processed) {
+              // Message was skipped (not a trace message), delete it anyway
+              await sqs
+                .deleteMessage({
+                  QueueUrl: QUEUE_URL,
+                  ReceiptHandle: message.ReceiptHandle,
+                })
+                .promise();
+              // Silently skip - this is expected when SNS fans out to all queues
+              continue;
+            }
 
             // Delete message from queue after successful processing
             await sqs

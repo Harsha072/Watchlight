@@ -8,6 +8,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3000';
 const GENERATION_INTERVAL = parseInt(process.env.GENERATION_INTERVAL || '2000', 10); // 2 seconds default
 const SCENARIO = process.env.SCENARIO || 'normal'; // normal, high-load, errors, slow, mixed
+const CONTINUOUS_MODE = process.env.CONTINUOUS_MODE === 'true'; // Set to 'true' for continuous generation
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '5', 10); // Number of logs to send in one batch
 
 interface LogData {
   level: string;
@@ -310,66 +312,132 @@ async function sendTrace(traceData: TraceData): Promise<void> {
   }
 }
 
+// Note: Services (Logs, Metrics, Trace) now automatically send processed data to AI Analyzer
+// No need to send aggregated data directly from the generator
+
+// Send a single batch of data
+async function sendBatch(): Promise<void> {
+  console.log('📤 Sending batch of test data...\n');
+
+  // Send logs
+  console.log('📝 Sending logs...');
+  for (let i = 0; i < BATCH_SIZE; i++) {
+    const log = generateLog();
+    await sendLog(log);
+    if (log.level === 'error') {
+      console.log(`   ❌ [${log.service}] ${log.message}`);
+    } else if (log.level === 'warn') {
+      console.log(`   ⚠️  [${log.service}] ${log.message}`);
+    } else {
+      console.log(`   ℹ️  [${log.service}] ${log.message}`);
+    }
+    // Small delay between logs
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  // Send metrics
+  console.log('\n📊 Sending metrics...');
+  const metrics = generateMetrics();
+  await sendMetrics(metrics);
+  console.log(`   ✅ [${metrics.service}] Requests: ${metrics.metrics.request_count}, Errors: ${metrics.metrics.error_count}, CPU: ${metrics.metrics.cpu_usage_percent}%`);
+
+  // Send trace
+  console.log('\n🔍 Sending trace...');
+  const trace = generateTrace();
+  await sendTrace(trace);
+  const status = trace.statusCode === 200 ? '✅' : '❌';
+  console.log(`   ${status} [${trace.service}] ${trace.operation} - ${trace.duration}ms (${trace.spans.length} spans)`);
+
+  console.log('\n✅ Batch sent successfully!');
+  console.log(`📈 Total: ${requestCounter} requests sent, ${errorCounter} errors generated`);
+}
+
 // Main generation loop
 async function generateData() {
   console.log('🚀 Test Data Generator Starting...');
   console.log(`   Gateway URL: ${GATEWAY_URL}`);
   console.log(`   Scenario: ${SCENARIO}`);
-  console.log(`   Interval: ${GENERATION_INTERVAL}ms`);
+  console.log(`   Mode: ${CONTINUOUS_MODE ? 'Continuous' : 'Single Batch'}`);
+  console.log(`   Batch Size: ${BATCH_SIZE} logs`);
   console.log(`   Error Rate: ${(scenarioConfig.errorRate * 100).toFixed(1)}%`);
   console.log(`   Slow Request Rate: ${(scenarioConfig.slowRequestRate * 100).toFixed(1)}%`);
-  console.log('   Generating data...\n');
+  console.log('');
 
-  let iteration = 0;
-
-  const interval = setInterval(async () => {
-    iteration++;
+  if (CONTINUOUS_MODE) {
+    // Continuous mode - send data repeatedly
+    console.log('🔄 Continuous mode enabled - sending data repeatedly...\n');
     
-    // Generate and send logs (most frequent)
-    const logCount = Math.floor(Math.random() * 3) + 1; // 1-3 logs per interval
-    for (let i = 0; i < logCount; i++) {
-      const log = generateLog();
-      await sendLog(log);
-      if (log.level === 'error') {
-        console.log(`❌ [${log.service}] ${log.message}`);
-      } else if (log.level === 'warn') {
-        console.log(`⚠️  [${log.service}] ${log.message}`);
+    let iteration = 0;
+    const interval = setInterval(async () => {
+      iteration++;
+      console.log(`\n--- Iteration ${iteration} ---`);
+      
+      // Generate and send logs (most frequent)
+      const logCount = Math.floor(Math.random() * 3) + 1; // 1-3 logs per interval
+      for (let i = 0; i < logCount; i++) {
+        const log = generateLog();
+        await sendLog(log);
+        if (log.level === 'error') {
+          console.log(`❌ [${log.service}] ${log.message}`);
+        } else if (log.level === 'warn') {
+          console.log(`⚠️  [${log.service}] ${log.message}`);
+        }
       }
+
+      // Generate and send metrics (every 5 iterations)
+      if (iteration % 5 === 0) {
+        const metrics = generateMetrics();
+        await sendMetrics(metrics);
+        console.log(`📊 [${metrics.service}] Requests: ${metrics.metrics.request_count}, Errors: ${metrics.metrics.error_count}, CPU: ${metrics.metrics.cpu_usage_percent}%`);
+      }
+
+      // Generate and send traces (every 3 iterations)
+      if (iteration % 3 === 0) {
+        const trace = generateTrace();
+        await sendTrace(trace);
+        const status = trace.statusCode === 200 ? '✅' : '❌';
+        console.log(`${status} [${trace.service}] ${trace.operation} - ${trace.duration}ms (${trace.spans.length} spans)`);
+      }
+
+      // Summary every 20 iterations
+      if (iteration % 20 === 0) {
+        console.log(`\n📈 Summary: ${requestCounter} requests sent, ${errorCounter} errors generated\n`);
+      }
+    }, GENERATION_INTERVAL);
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('\n🛑 Stopping data generator...');
+      clearInterval(interval);
+      process.exit(0);
+    });
+
+    process.on('SIGINT', () => {
+      console.log('\n🛑 Stopping data generator...');
+      clearInterval(interval);
+      process.exit(0);
+    });
+  } else {
+    // Single batch mode - send once and exit
+    console.log('📦 Single batch mode - sending data once and exiting...\n');
+    
+    try {
+      await sendBatch();
+      
+      console.log('\n⏳ Waiting 2 seconds for services to process...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('\n✅ Test data generation complete!');
+      console.log('   You can now check the services to see if data was processed correctly.');
+      console.log('   To send more data, run the generator again.');
+      console.log('   To enable continuous mode, set CONTINUOUS_MODE=true in .env\n');
+      
+      process.exit(0);
+    } catch (error: any) {
+      console.error('❌ Error sending batch:', error.message);
+      process.exit(1);
     }
-
-    // Generate and send metrics (every 5 iterations)
-    if (iteration % 5 === 0) {
-      const metrics = generateMetrics();
-      await sendMetrics(metrics);
-      console.log(`📊 [${metrics.service}] Requests: ${metrics.metrics.request_count}, Errors: ${metrics.metrics.error_count}, CPU: ${metrics.metrics.cpu_usage_percent}%`);
-    }
-
-    // Generate and send traces (every 3 iterations)
-    if (iteration % 3 === 0) {
-      const trace = generateTrace();
-      await sendTrace(trace);
-      const status = trace.statusCode === 200 ? '✅' : '❌';
-      console.log(`${status} [${trace.service}] ${trace.operation} - ${trace.duration}ms (${trace.spans.length} spans)`);
-    }
-
-    // Summary every 20 iterations
-    if (iteration % 20 === 0) {
-      console.log(`\n📈 Summary: ${requestCounter} requests sent, ${errorCounter} errors generated\n`);
-    }
-  }, GENERATION_INTERVAL);
-
-  // Handle graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('\n🛑 Stopping data generator...');
-    clearInterval(interval);
-    process.exit(0);
-  });
-
-  process.on('SIGINT', () => {
-    console.log('\n🛑 Stopping data generator...');
-    clearInterval(interval);
-    process.exit(0);
-  });
+  }
 }
 
 // Start generating

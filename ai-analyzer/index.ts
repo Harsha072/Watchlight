@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 import { SQS } from 'aws-sdk';
 import axios from 'axios';
-import Anthropic from '@anthropic-ai/sdk';
+import path from 'path';
+import { testConnection, initializeDatabase, saveAnalysis, closeDatabase } from './services/database';
 
-dotenv.config();
+// Load .env from root directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -13,11 +15,10 @@ const sqs = new SQS({
 });
 
 const QUEUE_URL = process.env.AI_ANALYZER_QUEUE_URL || '';
+const NOTIFY_QUEUE_URL = process.env.NOTIFY_QUEUE_URL || '';
+const DATABASE_URL = process.env.DATABASE_URL || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-
-// Initialize Anthropic client
-const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 interface ObservabilityData {
   metrics?: any;
@@ -27,7 +28,7 @@ interface ObservabilityData {
 }
 
 interface AnalysisResult {
-  provider: 'groq' | 'claude';
+  provider: 'groq' | 'openai';
   analysis: string;
   anomalies?: string[];
   insights?: string[];
@@ -40,7 +41,7 @@ async function analyzeWithGroq(data: ObservabilityData): Promise<string> {
     throw new Error('GROQ_API_KEY not configured');
   }
 
-  const prompt = `You are an observability expert. Analyze the following observability data and provide insights:
+  const prompt = `You are an observability expert. Analyze the following observability data and provide Deep insights:
   
 Metrics: ${JSON.stringify(data.metrics || {}, null, 2)}
 Logs: ${JSON.stringify(data.logs || {}, null, 2)}
@@ -86,10 +87,10 @@ Keep the response concise and actionable.`;
   }
 }
 
-// Analyze with Claude API
-async function analyzeWithClaude(data: ObservabilityData): Promise<string> {
-  if (!anthropic) {
-    throw new Error('ANTHROPIC_API_KEY not configured');
+// Analyze with OpenAI API
+async function analyzeWithOpenAI(data: ObservabilityData): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY not configured');
   }
 
   const prompt = `You are an observability expert. Analyze the following observability data and provide insights:
@@ -106,25 +107,35 @@ Provide:
 Keep the response concise and actionable.`;
 
   try {
-    const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert observability analyst specializing in API monitoring and performance analysis.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
         },
-      ],
-    });
+      }
+    );
 
-    const content = message.content[0];
-    if (content.type === 'text') {
-      return content.text;
-    }
-    return 'No analysis generated';
+    return response.data.choices[0]?.message?.content || 'No analysis generated';
   } catch (error: any) {
-    console.error('Claude API error:', error.message);
-    throw new Error(`Claude analysis failed: ${error.message}`);
+    console.error('OpenAI API error:', error.response?.data || error.message);
+    throw new Error(`OpenAI analysis failed: ${error.message}`);
   }
 }
 
@@ -148,40 +159,49 @@ async function processAnalysis(data: ObservabilityData): Promise<AnalysisResult[
     }
   }
 
-  // Try Claude (more detailed)
-  if (anthropic) {
+  // Try OpenAI (more detailed)
+  if (OPENAI_API_KEY) {
     try {
-      console.log('🤖 Analyzing with Claude...');
-      const claudeAnalysis = await analyzeWithClaude(data);
+      console.log('🤖 Analyzing with OpenAI...');
+      const openaiAnalysis = await analyzeWithOpenAI(data);
       results.push({
-        provider: 'claude',
-        analysis: claudeAnalysis,
+        provider: 'openai',
+        analysis: openaiAnalysis,
         timestamp: new Date().toISOString(),
       });
-      console.log('✅ Claude analysis complete');
+      console.log('✅ OpenAI analysis complete');
     } catch (error: any) {
-      console.error('❌ Claude analysis failed:', error.message);
+      console.error('❌ OpenAI analysis failed:', error.message);
     }
   }
 
   return results;
 }
 
-// Store analysis results (simulate DB save)
+// Store analysis results to database
 async function saveAnalysisResults(results: AnalysisResult[], originalData: ObservabilityData): Promise<void> {
-  // Simulate async database operation
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  
   console.log('\n📊 Analysis Results:');
-  results.forEach((result) => {
+  
+  for (const result of results) {
     console.log(`\n[${result.provider.toUpperCase()}]`);
     console.log(result.analysis);
-  });
+    
+    // Save to database
+    try {
+      await saveAnalysis(
+        result.provider,
+        result.analysis,
+        result.anomalies || null,
+        result.insights || null,
+        originalData,
+        result.timestamp
+      );
+    } catch (error: any) {
+      console.error(`❌ Failed to save ${result.provider} analysis to database:`, error.message);
+    }
+  }
   
-  // TODO: Store in database
-  // await db.query('INSERT INTO ai_analysis (provider, analysis, data, timestamp) VALUES ...');
-  
-  console.log('\n✅ DB was saved successfully');
+  console.log('\n✅ Analysis results saved to database');
 }
 
 // Poll SQS for messages
@@ -205,30 +225,46 @@ async function pollSQS(): Promise<void> {
             // Parse message
             let observabilityData: ObservabilityData;
             
-            try {
-              observabilityData = JSON.parse(message.Body);
-            } catch {
-              const snsMessage = JSON.parse(message.Body);
-              if (snsMessage.Message) {
-                observabilityData = JSON.parse(snsMessage.Message);
-              } else {
-                observabilityData = snsMessage;
-              }
+            // First, parse the SQS message body
+            const sqsMessage = JSON.parse(message.Body);
+            
+            // Check if this is an SNS notification (when SNS delivers to SQS)
+            if (sqsMessage.Type === 'Notification' && sqsMessage.Message) {
+              // This is an SNS notification, extract the actual message
+              observabilityData = JSON.parse(sqsMessage.Message);
+            } else if (sqsMessage.Message) {
+              // Alternative SNS format
+              observabilityData = JSON.parse(sqsMessage.Message);
+            } else {
+              // Direct message (not wrapped in SNS)
+              observabilityData = sqsMessage;
+            }
+
+            // Validate that we have observability data
+            if (!observabilityData.metrics && !observabilityData.logs && !observabilityData.traces) {
+              console.warn('⚠️ Message does not contain observability data, skipping');
+              // Delete message anyway to avoid reprocessing
+              await sqs.deleteMessage({
+                QueueUrl: QUEUE_URL,
+                ReceiptHandle: message.ReceiptHandle!,
+              }).promise();
+              continue;
             }
 
             console.log('🔍 Processing observability data for AI analysis...');
+            console.log(`   Metrics: ${observabilityData.metrics ? 'Yes' : 'No'}, Logs: ${observabilityData.logs ? 'Yes' : 'No'}, Traces: ${observabilityData.traces ? 'Yes' : 'No'}`);
 
             // Run AI analysis
             const analysisResults = await processAnalysis(observabilityData);
 
             if (analysisResults.length > 0) {
-              // Save results
+              // Save results to database
               await saveAnalysisResults(analysisResults, observabilityData);
 
-              // TODO: Check for anomalies and trigger notifications
-              // if (hasAnomalies(analysisResults)) {
-              //   await triggerNotification(analysisResults);
-              // }
+              // Check for anomalies and trigger notifications
+              if (hasAnomalies(analysisResults)) {
+                await triggerNotification(analysisResults, observabilityData);
+              }
             } else {
               console.warn('⚠️ No analysis results generated');
             }
@@ -255,17 +291,131 @@ async function pollSQS(): Promise<void> {
   }
 }
 
+// Check if analysis results contain anomalies
+function hasAnomalies(results: AnalysisResult[]): boolean {
+  for (const result of results) {
+    // Check if analysis mentions errors, anomalies, or issues
+    const analysisLower = result.analysis.toLowerCase();
+    const hasErrorKeywords = 
+      analysisLower.includes('error') ||
+      analysisLower.includes('anomaly') ||
+      analysisLower.includes('issue') ||
+      analysisLower.includes('problem') ||
+      analysisLower.includes('critical') ||
+      analysisLower.includes('failure') ||
+      analysisLower.includes('alert');
+    
+    if (hasErrorKeywords || (result.anomalies && result.anomalies.length > 0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Trigger notification to Notify Service
+async function triggerNotification(results: AnalysisResult[], originalData: ObservabilityData): Promise<void> {
+  if (!NOTIFY_QUEUE_URL) {
+    console.warn('⚠️ NOTIFY_QUEUE_URL not configured, skipping notification');
+    return;
+  }
+
+  try {
+    // Prepare notification payload
+    const notificationData = {
+      timestamp: new Date().toISOString(),
+      severity: 'warning', // Can be: info, warning, error, critical
+      message: 'Anomalies detected in observability data',
+      analysis: results.map(r => ({
+        provider: r.provider,
+        summary: r.analysis.substring(0, 500), // First 500 chars
+        anomalies: r.anomalies || [],
+        insights: r.insights || [],
+      })),
+      observabilityData: {
+        hasMetrics: !!originalData.metrics,
+        hasLogs: !!originalData.logs,
+        hasTraces: !!originalData.traces,
+      },
+    };
+
+    // Send message to Notify Service queue
+    await sqs.sendMessage({
+      QueueUrl: NOTIFY_QUEUE_URL,
+      MessageBody: JSON.stringify(notificationData),
+      MessageAttributes: {
+        severity: {
+          DataType: 'String',
+          StringValue: notificationData.severity,
+        },
+        type: {
+          DataType: 'String',
+          StringValue: 'anomaly-alert',
+        },
+      },
+    }).promise();
+
+    console.log('📢 Notification sent to Notify Service');
+  } catch (error: any) {
+    console.error('❌ Failed to send notification:', error.message);
+    // Don't throw - we don't want to fail analysis if notification fails
+  }
+}
+
 // Main processing loop
 async function processAnalysisLoop() {
   console.log('🚀 AI Analyzer service starting...');
   console.log(`📡 Queue URL: ${QUEUE_URL}`);
 
+  // Check database connection
+  if (!DATABASE_URL) {
+    console.error('❌ DATABASE_URL not set in environment variables');
+    process.exit(1);
+  }
+
+  // Test and verify database connection
+  const maxRetries = 5;
+  let retries = 0;
+  let connected = false;
+
+  while (retries < maxRetries && !connected) {
+    connected = await testConnection();
+    if (!connected) {
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`⏳ Retrying database connection (${retries}/${maxRetries})...`);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+  }
+
+  if (!connected) {
+    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    process.exit(1);
+  }
+
+  // Initialize database tables
+  try {
+    await initializeDatabase();
+  } catch (error: any) {
+    console.error('❌ Failed to initialize database:', error.message);
+    process.exit(1);
+  }
+
   // Check API keys
-  if (!GROQ_API_KEY && !ANTHROPIC_API_KEY) {
-    console.warn('⚠️ No AI API keys configured. Set GROQ_API_KEY or ANTHROPIC_API_KEY');
+  console.log('🔑 Checking API keys...');
+  console.log(`   GROQ_API_KEY: ${GROQ_API_KEY ? '✅ Configured' : '❌ Not found'}`);
+  console.log(`   OPENAI_API_KEY: ${OPENAI_API_KEY ? '✅ Configured' : '❌ Not found'}`);
+  
+  if (!GROQ_API_KEY && !OPENAI_API_KEY) {
+    console.warn('⚠️ No AI API keys configured. Set GROQ_API_KEY or OPENAI_API_KEY in .env file');
+    console.warn('   The service will start but cannot perform AI analysis');
   } else {
-    if (GROQ_API_KEY) console.log('✅ Groq API key configured');
-    if (ANTHROPIC_API_KEY) console.log('✅ Claude API key configured');
+    if (GROQ_API_KEY) {
+      console.log('✅ Groq API key configured');
+    }
+    if (OPENAI_API_KEY) {
+      console.log('✅ OpenAI API key configured');
+    }
   }
 
   if (!QUEUE_URL) {
@@ -300,12 +450,14 @@ processAnalysisLoop().catch((error) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('🛑 AI Analyzer service shutting down...');
+  await closeDatabase();
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('🛑 AI Analyzer service shutting down...');
+  await closeDatabase();
   process.exit(0);
 });

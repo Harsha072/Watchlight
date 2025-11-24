@@ -29,9 +29,11 @@ app.get('/health', (req: Request, res: Response) => {
 import logsRoutes from './routes/logs';
 import metricsRoutes from './routes/metrics';
 import tracesRoutes from './routes/traces';
+import aiAnalyzerRoutes from './routes/ai-analyzer';
 app.use('/', logsRoutes);
 app.use('/', metricsRoutes);
 app.use('/', tracesRoutes);
+app.use('/', aiAnalyzerRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

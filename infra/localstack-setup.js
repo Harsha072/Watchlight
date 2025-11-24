@@ -76,6 +76,12 @@ async function setupLocalStack() {
     }).promise();
     const traceQueueArn = traceQueueAttrs.Attributes.QueueArn;
 
+    const aiAnalyzerQueueAttrs = await sqs.getQueueAttributes({
+      QueueUrl: aiAnalyzerQueueUrl,
+      AttributeNames: ['QueueArn']
+    }).promise();
+    const aiAnalyzerQueueArn = aiAnalyzerQueueAttrs.Attributes.QueueArn;
+
     // Subscribe queues to SNS topic
     console.log('Subscribing queues to SNS topic...\n');
     
@@ -98,7 +104,14 @@ async function setupLocalStack() {
       Protocol: 'sqs',
       Endpoint: traceQueueArn
     }).promise();
-    console.log('✅ Trace queue subscribed\n');
+    console.log('✅ Trace queue subscribed');
+
+    await sns.subscribe({
+      TopicArn: topicArn,
+      Protocol: 'sqs',
+      Endpoint: aiAnalyzerQueueArn
+    }).promise();
+    console.log('✅ AI Analyzer queue subscribed\n');
 
     // Set queue policy to allow SNS to send messages
     const policy = {
@@ -129,6 +142,13 @@ async function setupLocalStack() {
 
     await sqs.setQueueAttributes({
       QueueUrl: traceQueueUrl,
+      Attributes: {
+        Policy: JSON.stringify(policy)
+      }
+    }).promise();
+
+    await sqs.setQueueAttributes({
+      QueueUrl: aiAnalyzerQueueUrl,
       Attributes: {
         Policy: JSON.stringify(policy)
       }
