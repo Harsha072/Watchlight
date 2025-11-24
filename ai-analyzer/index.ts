@@ -19,6 +19,8 @@ const NOTIFY_QUEUE_URL = process.env.NOTIFY_QUEUE_URL || '';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+// Groq model - can be overridden via GROQ_MODEL env var
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 interface ObservabilityData {
   metrics?: any;
@@ -58,7 +60,7 @@ Keep the response concise and actionable.`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama-3.1-70b-versatile',
+        model: GROQ_MODEL,
         messages: [
           {
             role: 'system',
@@ -146,7 +148,7 @@ async function processAnalysis(data: ObservabilityData): Promise<AnalysisResult[
   // Try Groq first (faster)
   if (GROQ_API_KEY) {
     try {
-      console.log('🤖 Analyzing with Groq...');
+      console.log(`🤖 Analyzing with Groq (model: ${GROQ_MODEL})...`);
       const groqAnalysis = await analyzeWithGroq(data);
       results.push({
         provider: 'groq',

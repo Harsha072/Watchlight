@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3000';
 const GENERATION_INTERVAL = parseInt(process.env.GENERATION_INTERVAL || '2000', 10); // 2 seconds default
-const SCENARIO = process.env.SCENARIO || 'normal'; // normal, high-load, errors, slow, mixed
+const SCENARIO = process.env.SCENARIO || 'normal'; // normal, high-load, errors, slow, mixed, anomaly
 const CONTINUOUS_MODE = process.env.CONTINUOUS_MODE === 'true'; // Set to 'true' for continuous generation
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '5', 10); // Number of logs to send in one batch
 
@@ -144,6 +144,13 @@ const SCENARIOS = {
     cpuBase: 65,
     memoryBase: 70,
   },
+  anomaly: {
+    errorRate: 0.30, // 30% errors - HIGH to trigger anomaly detection
+    slowRequestRate: 0.40, // 40% slow requests - HIGH latency
+    requestRate: 2, // 2x request rate - volume spike
+    cpuBase: 85, // High CPU usage
+    memoryBase: 90, // High memory usage
+  },
 };
 
 let scenarioConfig = SCENARIOS[SCENARIO as keyof typeof SCENARIOS] || SCENARIOS.normal;
@@ -208,9 +215,9 @@ function generateMetrics(): MetricData {
   const errorCount = Math.floor(requestCount * scenarioConfig.errorRate);
   
   const baseResponseTime = 100 + Math.random() * 200;
-  const avgResponseTime = scenarioConfig.slowRequestRate > 0.2 
-    ? baseResponseTime * 2 
-    : baseResponseTime;
+  // For anomaly scenario, make response times much higher
+  const responseTimeMultiplier = SCENARIO === 'anomaly' ? 5 : (scenarioConfig.slowRequestRate > 0.2 ? 2 : 1);
+  const avgResponseTime = baseResponseTime * responseTimeMultiplier;
   
   const cpuUsage = scenarioConfig.cpuBase + Math.random() * 20;
   const memoryUsage = scenarioConfig.memoryBase + Math.random() * 15;
@@ -361,6 +368,16 @@ async function generateData() {
   console.log(`   Batch Size: ${BATCH_SIZE} logs`);
   console.log(`   Error Rate: ${(scenarioConfig.errorRate * 100).toFixed(1)}%`);
   console.log(`   Slow Request Rate: ${(scenarioConfig.slowRequestRate * 100).toFixed(1)}%`);
+  
+  if (SCENARIO === 'anomaly') {
+    console.log('\n⚠️  ANOMALY SCENARIO ACTIVE');
+    console.log('   This scenario will generate data that should trigger anomaly detection:');
+    console.log('   - High error rate (30%)');
+    console.log('   - High latency (40% slow requests)');
+    console.log('   - High CPU/Memory usage');
+    console.log('   - Increased request volume');
+    console.log('   Watch the auto-anomaly-detector logs to see if anomalies are detected!\n');
+  }
   console.log('');
 
   if (CONTINUOUS_MODE) {
