@@ -19,6 +19,8 @@ const services = [
   { name: 'Metrics Service', dir: 'metrics-service', command: 'npm', args: ['run', 'dev'] },
   { name: 'Trace Service', dir: 'trace-service', command: 'npm', args: ['run', 'dev'] },
   { name: 'Cron Aggregator', dir: 'cron-aggregator', command: 'npm', args: ['run', 'dev'] },
+  { name: 'Auto-Anomaly Detector', dir: 'auto-anomaly-detector', command: 'npm', args: ['run', 'dev'] },
+  { name: 'Notify Service', dir: 'notify-service', command: 'npm', args: ['run', 'dev'] },
 ];
 
 const processes = [];
