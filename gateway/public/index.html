@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watchlight - Observability Platform</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --secondary: #8b5cf6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --bg-dark: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #cbd5e1;
+      --border: #334155;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      padding: 30px 20px;
+      margin-bottom: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    header p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 1.1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      padding: 25px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-card h3 {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card .value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .stat-card .sub-value {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .section {
+      background: var(--bg-card);
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      border: 1px solid var(--border);
+    }
+
+    .section h2 {
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section h2::before {
+      content: '';
+      width: 4px;
+      height: 30px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .scenario-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .scenario-btn {
+      padding: 15px 20px;
+      background: var(--bg-hover);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .scenario-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .data-table th {
+      background: var(--bg-hover);
+      padding: 12px;
+      text-align: left;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .data-table tr:hover {
+      background: var(--bg-hover);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .badge-error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .badge-info {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--primary);
+    }
+
+    .ai-analysis-card {
+      background: var(--bg-hover);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .ai-analysis-card h4 {
+      color: var(--primary);
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+
+    .ai-analysis-card .timestamp {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 15px;
+    }
+
+    .ai-analysis-card .analysis-text {
+      color: var(--text-primary);
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+
+    .cloudwatch-log-entry {
+      transition: all 0.2s;
+    }
+
+    .cloudwatch-log-entry:hover {
+      transform: translateX(5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .cloudwatch-log-entry details summary {
+      transition: color 0.2s;
+    }
+
+    .cloudwatch-log-entry details summary:hover {
+      color: var(--primary-dark);
+    }
+
+    .chart-container {
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .chart-container h3 {
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 300px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .loading::after {
+      content: '...';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+
+    .api-docs {
+      background: var(--bg-hover);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .api-docs .method {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-right: 10px;
+      font-size: 0.85rem;
+    }
+
+    .method-get {
+      background: var(--success);
+      color: white;
+    }
+
+    .method-post {
+      background: var(--primary);
+      color: white;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-input {
+      padding: 10px 15px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .btn {
+      padding: 10px 20px;
+      background: var(--primary);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state svg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .scenario-buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 Watchlight</h1>
+      <p>Backend Observability Platform - Real-time Monitoring & AI-Powered Analysis</p>
+    </header>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <h3>Total Logs</h3>
+        <div class="value" id="totalLogs">-</div>
+        <div class="sub-value">Errors: <span id="errorLogs">-</span></div>
+      </div>
+      <div class="stat-card">
+        <h3>Metrics</h3>
+        <div class="value" id="totalMetrics">-</div>
+        <div class="sub-value">Services: <span id="metricServices">-</span></div>
+      </div>
+      <div class="stat-card">
+        <h3>Traces</h3>
+        <div class="value" id="totalTraces">-</div>
+        <div class="sub-value">Services: <span id="traceServices">-</span></div>
+      </div>
+      <div class="stat-card">
+        <h3>Error Rate</h3>
+        <div class="value" id="errorRate">-</div>
+        <div class="sub-value">Last Hour</div>
+      </div>
+    </div>
+
+    <!-- Scenario Testing Section -->
+    <div class="section">
+      <h2>🧪 Scenario Testing</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 20px;">
+        Test different scenarios to see how the system handles various conditions. 
+        Click a scenario to send test data to the observability platform.
+      </p>
+      <div class="scenario-buttons">
+        <button class="scenario-btn" onclick="sendScenario('normal')">
+          ✅ Normal Operation
+        </button>
+        <button class="scenario-btn" onclick="sendScenario('high-traffic')">
+          📈 High Traffic
+        </button>
+        <button class="scenario-btn" onclick="sendScenario('errors')">
+          ❌ Error Spike
+        </button>
+        <button class="scenario-btn" onclick="sendScenario('slow-response')">
+          🐌 Slow Response
+        </button>
+        <button class="scenario-btn" onclick="sendScenario('anomaly')">
+          🚨 Anomaly Detection
+        </button>
+      </div>
+      <div id="scenarioStatus" style="margin-top: 15px; padding: 15px; background: var(--bg-hover); border-radius: 8px; display: none;">
+        <strong style="color: var(--success);" id="scenarioMessage"></strong>
+      </div>
+    </div>
+
+    <!-- Main Content Tabs -->
+    <div class="section">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('logs', this)">📋 Logs</button>
+        <button class="tab" onclick="switchTab('metrics', this)">📊 Metrics</button>
+        <button class="tab" onclick="switchTab('traces', this)">🔍 Traces</button>
+        <button class="tab" onclick="switchTab('ai-analysis', this)">🤖 AI Analysis</button>
+        <button class="tab" onclick="switchTab('cloudwatch', this)">☁️ CloudWatch</button>
+        <button class="tab" onclick="switchTab('api-docs', this)">📚 API Docs</button>
+      </div>
+
+      <!-- Logs Tab -->
+      <div id="logs-tab" class="tab-content active">
+        <div class="filter-bar">
+          <select class="filter-input" id="logTimeWindow" style="width: 120px;">
+            <option value="5">Last 5 min</option>
+            <option value="10">Last 10 min</option>
+            <option value="15">Last 15 min</option>
+          </select>
+          <input type="text" class="filter-input" id="logServiceFilter" placeholder="Filter by service...">
+          <select class="filter-input" id="logLevelFilter">
+            <option value="">All Levels</option>
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+          </select>
+          <input type="number" class="filter-input" id="logLimit" placeholder="Limit" value="50" style="width: 100px;">
+          <button class="btn" onclick="loadLogs()">Refresh</button>
+        </div>
+        <!-- Charts Section -->
+        <div id="logsCharts" class="charts-grid" style="display: none;">
+          <div class="chart-container">
+            <h3>📊 Log Level Distribution</h3>
+            <div class="chart-wrapper">
+              <canvas id="logLevelPieChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>📈 Error Rate Over Time</h3>
+            <div class="chart-wrapper">
+              <canvas id="errorRateLineChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>📊 Logs by Service</h3>
+            <div class="chart-wrapper">
+              <canvas id="logsByServiceChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div id="logsContent">
+          <div class="loading">Loading logs</div>
+        </div>
+      </div>
+
+      <!-- Metrics Tab -->
+      <div id="metrics-tab" class="tab-content">
+        <div class="filter-bar">
+          <select class="filter-input" id="metricTimeWindow" style="width: 120px;">
+            <option value="5">Last 5 min</option>
+            <option value="10">Last 10 min</option>
+            <option value="15">Last 15 min</option>
+          </select>
+          <input type="text" class="filter-input" id="metricServiceFilter" placeholder="Filter by service...">
+          <input type="number" class="filter-input" id="metricLimit" placeholder="Limit" value="20" style="width: 100px;">
+          <button class="btn" onclick="loadMetrics()">Refresh</button>
+        </div>
+        <!-- Charts Section -->
+        <div id="metricsCharts" class="charts-grid" style="display: none;">
+          <div class="chart-container">
+            <h3>📈 Response Time Trend</h3>
+            <div class="chart-wrapper">
+              <canvas id="responseTimeLineChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>📊 Requests vs Errors</h3>
+            <div class="chart-wrapper">
+              <canvas id="requestsErrorsBarChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>💻 Resource Usage (CPU/Memory)</h3>
+            <div class="chart-wrapper">
+              <canvas id="resourceUsageAreaChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>🔄 Service Comparison</h3>
+            <div class="chart-wrapper">
+              <canvas id="serviceComparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div id="metricsContent">
+          <div class="loading">Loading metrics</div>
+        </div>
+      </div>
+
+      <!-- Traces Tab -->
+      <div id="traces-tab" class="tab-content">
+        <div class="filter-bar">
+          <select class="filter-input" id="traceTimeWindow" style="width: 120px;">
+            <option value="5">Last 5 min</option>
+            <option value="10">Last 10 min</option>
+            <option value="15">Last 15 min</option>
+          </select>
+          <input type="text" class="filter-input" id="traceServiceFilter" placeholder="Filter by service...">
+          <input type="text" class="filter-input" id="traceIdFilter" placeholder="Filter by trace ID...">
+          <input type="number" class="filter-input" id="traceLimit" placeholder="Limit" value="20" style="width: 100px;">
+          <button class="btn" onclick="loadTraces()">Refresh</button>
+        </div>
+        <!-- Charts Section -->
+        <div id="tracesCharts" class="charts-grid" style="display: none;">
+          <div class="chart-container">
+            <h3>📈 Trace Duration Trend</h3>
+            <div class="chart-wrapper">
+              <canvas id="traceDurationLineChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>📊 Status Code Distribution</h3>
+            <div class="chart-wrapper">
+              <canvas id="statusCodePieChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container">
+            <h3>📊 Average Duration by Service</h3>
+            <div class="chart-wrapper">
+              <canvas id="durationByServiceChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div id="tracesContent">
+          <div class="loading">Loading traces</div>
+        </div>
+      </div>
+
+      <!-- AI Analysis Tab -->
+      <div id="ai-analysis-tab" class="tab-content">
+        <div class="filter-bar">
+          <input type="number" class="filter-input" id="aiLimit" placeholder="Limit" value="10" style="width: 100px;">
+          <button class="btn" onclick="loadAIAnalysis()">Refresh</button>
+        </div>
+        <div id="aiAnalysisContent">
+          <div class="loading">Loading AI analysis</div>
+        </div>
+      </div>
+
+      <!-- CloudWatch Logs Tab -->
+      <div id="cloudwatch-tab" class="tab-content">
+        <div class="filter-bar">
+          <select class="filter-input" id="cloudwatchTypeFilter">
+            <option value="">All Types</option>
+            <option value="log">Logs</option>
+            <option value="metric">Metrics</option>
+            <option value="trace">Traces</option>
+          </select>
+          <input type="number" class="filter-input" id="cloudwatchLimit" placeholder="Limit" value="30" style="width: 100px;">
+          <button class="btn" onclick="loadCloudWatchLogs()">Refresh</button>
+        </div>
+        <div id="cloudwatchContent">
+          <div class="loading">Loading CloudWatch logs</div>
+        </div>
+      </div>
+
+      <!-- API Docs Tab -->
+      <div id="api-docs-tab" class="tab-content">
+        <div id="apiDocsContent">
+          <div class="api-docs">
+            <h3 style="margin-bottom: 15px; color: var(--primary);">API Endpoints</h3>
+            
+            <div style="margin-bottom: 20px;">
+              <span class="method method-get">GET</span>
+              <strong>/api/dashboard/stats</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Get dashboard statistics including total logs, metrics, traces, and error rates.</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+                curl -X GET http://localhost:3000/api/dashboard/stats
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-get">GET</span>
+              <strong>/api/logs</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Get logs with optional filtering. Query params: limit, level, service, startTime, endTime</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+                curl -X GET "http://localhost:3000/api/logs?limit=50&level=error"
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-post">POST</span>
+              <strong>/api/logs</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Send log data to the observability platform.</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+curl -X POST http://localhost:3000/api/logs \<br>
+  -H "Content-Type: application/json" \<br>
+  -d '{"level":"error","message":"Database connection failed","service":"api-service"}'
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-get">GET</span>
+              <strong>/api/metrics</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Get metrics with optional filtering. Query params: limit, service, startTime, endTime</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+                curl -X GET "http://localhost:3000/api/metrics?limit=20&service=api-service"
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-post">POST</span>
+              <strong>/api/metrics</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Send metrics data to the observability platform.</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+curl -X POST http://localhost:3000/api/metrics \<br>
+  -H "Content-Type: application/json" \<br>
+  -d '{"service":"api-service","metrics":{"requestCount":100,"errorCount":5,"avgResponseTime":150}}'
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-get">GET</span>
+              <strong>/api/traces</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Get traces with optional filtering. Query params: limit, traceId, service, startTime, endTime</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+                curl -X GET "http://localhost:3000/api/traces?limit=20"
+              </code>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <span class="method method-get">GET</span>
+              <strong>/api/ai-analysis</strong>
+              <p style="margin: 10px 0; color: var(--text-secondary);">Get AI analysis results. Query params: limit, startTime, endTime</p>
+              <code style="display: block; margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px;">
+                curl -X GET "http://localhost:3000/api/ai-analysis?limit=10"
+              </code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Get API base URL - use environment variable or default to current origin
+    const API_BASE_URL = window.location.origin;
+
+    // Chart instances storage
+    const chartInstances = {};
+
+    // Load dashboard stats (with guard to prevent multiple simultaneous calls)
+    let isLoadingDashboardStats = false;
+    async function loadDashboardStats() {
+      // Prevent multiple simultaneous calls
+      if (isLoadingDashboardStats) {
+        return;
+      }
+      
+      isLoadingDashboardStats = true;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+        const data = await response.json();
+        
+        document.getElementById('totalLogs').textContent = data.logs?.total || 0;
+        document.getElementById('errorLogs').textContent = data.logs?.errors || 0;
+        document.getElementById('totalMetrics').textContent = data.metrics?.total || 0;
+        document.getElementById('metricServices').textContent = data.metrics?.services || 0;
+        document.getElementById('totalTraces').textContent = data.traces?.total || 0;
+        document.getElementById('traceServices').textContent = data.traces?.services || 0;
+        document.getElementById('errorRate').textContent = data.errorRate?.percentage ? `${data.errorRate.percentage}%` : '0%';
+      } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+      } finally {
+        isLoadingDashboardStats = false;
+      }
+    }
+
+    // Helper function to destroy chart if exists
+    function destroyChart(chartId) {
+      if (chartInstances[chartId]) {
+        chartInstances[chartId].destroy();
+        chartInstances[chartId] = null;
+      }
+    }
+
+    // Chart creation functions for Logs
+    function createLogCharts(logs) {
+      if (!logs || logs.length === 0) return;
+
+      // Log Level Distribution (Pie Chart)
+      const levelCounts = { error: 0, warn: 0, info: 0, debug: 0 };
+      logs.forEach(log => {
+        if (levelCounts.hasOwnProperty(log.level)) {
+          levelCounts[log.level]++;
+        }
+      });
+
+      destroyChart('logLevelPieChart');
+      const pieCtx = document.getElementById('logLevelPieChart');
+      if (pieCtx) {
+        chartInstances['logLevelPieChart'] = new Chart(pieCtx, {
+          type: 'pie',
+          data: {
+            labels: ['Error', 'Warning', 'Info', 'Debug'],
+            datasets: [{
+              data: [levelCounts.error, levelCounts.warn, levelCounts.info, levelCounts.debug],
+              backgroundColor: [
+                'rgba(239, 68, 68, 0.7)',
+                'rgba(245, 158, 11, 0.7)',
+                'rgba(99, 102, 241, 0.7)',
+                'rgba(16, 185, 129, 0.7)'
+              ],
+              borderColor: [
+                '#ef4444',
+                '#f59e0b',
+                '#6366f1',
+                '#10b981'
+              ],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#f1f5f9', padding: 15 }
+              }
+            }
+          }
+        });
+      }
+
+      // Error Rate Over Time (Line Chart)
+      const timeGroups = {};
+      logs.forEach(log => {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        if (!timeGroups[time]) {
+          timeGroups[time] = { error: 0, total: 0 };
+        }
+        timeGroups[time].total++;
+        if (log.level === 'error') timeGroups[time].error++;
+      });
+
+      const sortedTimes = Object.keys(timeGroups).sort();
+      const errorRates = sortedTimes.map(time => 
+        timeGroups[time].total > 0 ? (timeGroups[time].error / timeGroups[time].total) * 100 : 0
+      );
+
+      destroyChart('errorRateLineChart');
+      const lineCtx = document.getElementById('errorRateLineChart');
+      if (lineCtx) {
+        chartInstances['errorRateLineChart'] = new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels: sortedTimes,
+            datasets: [{
+              label: 'Error Rate %',
+              data: errorRates,
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true,
+                max: 100
+              }
+            }
+          }
+        });
+      }
+
+      // Logs by Service (Bar Chart)
+      const serviceCounts = {};
+      logs.forEach(log => {
+        const svc = log.service || 'unknown';
+        serviceCounts[svc] = (serviceCounts[svc] || 0) + 1;
+      });
+
+      destroyChart('logsByServiceChart');
+      const barCtx = document.getElementById('logsByServiceChart');
+      if (barCtx) {
+        chartInstances['logsByServiceChart'] = new Chart(barCtx, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(serviceCounts),
+            datasets: [{
+              label: 'Log Count',
+              data: Object.values(serviceCounts),
+              backgroundColor: 'rgba(99, 102, 241, 0.7)',
+              borderColor: '#6366f1',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Load logs (from database, not Redis)
+    async function loadLogs() {
+      const content = document.getElementById('logsContent');
+      const chartsDiv = document.getElementById('logsCharts');
+      content.innerHTML = '<div class="loading">Loading logs</div>';
+      
+      try {
+        const service = document.getElementById('logServiceFilter').value;
+        const level = document.getElementById('logLevelFilter').value;
+        const limit = document.getElementById('logLimit').value || 50;
+        
+        // Logs use database, not Redis
+        let url = `${API_BASE_URL}/api/logs?limit=${limit}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        if (level) url += `&level=${encodeURIComponent(level)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+          // Create charts
+          createLogCharts(data.logs);
+          if (chartsDiv) chartsDiv.style.display = 'grid';
+          
+          let html = '<table class="data-table"><thead><tr><th>Timestamp</th><th>Level</th><th>Service</th><th>Message</th></tr></thead><tbody>';
+          data.logs.forEach(log => {
+            const badgeClass = log.level === 'error' ? 'badge-error' : 
+                              log.level === 'warn' ? 'badge-warning' : 
+                              log.level === 'info' ? 'badge-info' : 'badge-success';
+            html += `<tr>
+              <td>${new Date(log.timestamp).toLocaleString()}</td>
+              <td><span class="badge ${badgeClass}">${log.level}</span></td>
+              <td>${log.service || 'N/A'}</td>
+              <td>${log.message || 'N/A'}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          content.innerHTML = html;
+        } else {
+          if (chartsDiv) chartsDiv.style.display = 'none';
+          content.innerHTML = '<div class="empty-state"><p>No logs found</p></div>';
+        }
+      } catch (error) {
+        if (chartsDiv) chartsDiv.style.display = 'none';
+        content.innerHTML = `<div class="empty-state"><p>Error loading logs: ${error.message}</p></div>`;
+      }
+    }
+
+    // Update only charts for logs (for polling)
+    async function updateLogChartsOnly() {
+      try {
+        const service = document.getElementById('logServiceFilter').value;
+        const level = document.getElementById('logLevelFilter').value;
+        const limit = document.getElementById('logLimit').value || 50;
+        
+        // Logs use database
+        let url = `${API_BASE_URL}/api/logs?limit=${limit}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        if (level) url += `&level=${encodeURIComponent(level)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+          createLogCharts(data.logs);
+        }
+      } catch (error) {
+        console.error('Error updating log charts:', error);
+      }
+    }
+
+    // Chart creation functions for Metrics
+    function createMetricsCharts(metrics) {
+      if (!metrics || metrics.length === 0) return;
+
+      const sortedMetrics = [...metrics].sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+      const labels = sortedMetrics.map(m => new Date(m.timestamp).toLocaleTimeString());
+
+      // Response Time Trend (Line Chart)
+      destroyChart('responseTimeLineChart');
+      const responseCtx = document.getElementById('responseTimeLineChart');
+      if (responseCtx) {
+        chartInstances['responseTimeLineChart'] = new Chart(responseCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Avg Response Time (ms)',
+                data: sortedMetrics.map(m => m.avg_response_time_ms || 0),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: 'P95 Response Time (ms)',
+                data: sortedMetrics.map(m => m.p95_response_time_ms || 0),
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      // Requests vs Errors (Bar Chart)
+      destroyChart('requestsErrorsBarChart');
+      const reqErrCtx = document.getElementById('requestsErrorsBarChart');
+      if (reqErrCtx) {
+        chartInstances['requestsErrorsBarChart'] = new Chart(reqErrCtx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Requests',
+                data: sortedMetrics.map(m => m.request_count || 0),
+                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                borderColor: '#6366f1',
+                borderWidth: 1
+              },
+              {
+                label: 'Errors',
+                data: sortedMetrics.map(m => m.error_count || 0),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                borderColor: '#ef4444',
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      // Resource Usage (Area Chart)
+      destroyChart('resourceUsageAreaChart');
+      const resourceCtx = document.getElementById('resourceUsageAreaChart');
+      if (resourceCtx) {
+        chartInstances['resourceUsageAreaChart'] = new Chart(resourceCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'CPU Usage %',
+                data: sortedMetrics.map(m => m.cpu_usage_percent || 0),
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: 'Memory Usage %',
+                data: sortedMetrics.map(m => m.memory_usage_percent || 0),
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                tension: 0.4,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true,
+                max: 100
+              }
+            }
+          }
+        });
+      }
+
+      // Service Comparison (Multi-line Chart)
+      const serviceGroups = {};
+      sortedMetrics.forEach(m => {
+        const svc = m.service || 'unknown';
+        if (!serviceGroups[svc]) {
+          serviceGroups[svc] = [];
+        }
+        serviceGroups[svc].push(m.avg_response_time_ms || 0);
+      });
+
+      destroyChart('serviceComparisonChart');
+      const serviceCtx = document.getElementById('serviceComparisonChart');
+      if (serviceCtx) {
+        const datasets = Object.keys(serviceGroups).map((service, index) => {
+          const colors = ['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+          return {
+            label: service,
+            data: serviceGroups[service],
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '40',
+            tension: 0.4,
+            fill: false
+          };
+        });
+
+        chartInstances['serviceComparisonChart'] = new Chart(serviceCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Load metrics (from Redis)
+    async function loadMetrics() {
+      const content = document.getElementById('metricsContent');
+      const chartsDiv = document.getElementById('metricsCharts');
+      content.innerHTML = '<div class="loading">Loading metrics</div>';
+      
+      try {
+        const timeWindow = document.getElementById('metricTimeWindow').value || 5;
+        const service = document.getElementById('metricServiceFilter').value;
+        const limit = document.getElementById('metricLimit').value || 20;
+        
+        // Metrics use Redis
+        let url = `${API_BASE_URL}/api/metrics?limit=${limit}&useRedis=true&windowMinutes=${timeWindow}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.metrics && data.metrics.length > 0) {
+          // Create charts
+          createMetricsCharts(data.metrics);
+          if (chartsDiv) chartsDiv.style.display = 'grid';
+          
+          let html = '<table class="data-table"><thead><tr><th>Timestamp</th><th>Service</th><th>Requests</th><th>Errors</th><th>Avg Response (ms)</th><th>P95 (ms)</th><th>CPU %</th><th>Memory %</th></tr></thead><tbody>';
+          data.metrics.forEach(metric => {
+            html += `<tr>
+              <td>${new Date(metric.timestamp).toLocaleString()}</td>
+              <td>${metric.service}</td>
+              <td>${metric.request_count}</td>
+              <td><span class="badge ${metric.error_count > 0 ? 'badge-error' : 'badge-success'}">${metric.error_count}</span></td>
+              <td>${metric.avg_response_time_ms}</td>
+              <td>${metric.p95_response_time_ms}</td>
+              <td>${metric.cpu_usage_percent}%</td>
+              <td>${metric.memory_usage_percent}%</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          content.innerHTML = html;
+        } else {
+          if (chartsDiv) chartsDiv.style.display = 'none';
+          content.innerHTML = '<div class="empty-state"><p>No metrics found</p></div>';
+        }
+      } catch (error) {
+        if (chartsDiv) chartsDiv.style.display = 'none';
+        content.innerHTML = `<div class="empty-state"><p>Error loading metrics: ${error.message}</p></div>`;
+      }
+    }
+
+    // Update only charts for metrics (for polling)
+    async function updateMetricsChartsOnly() {
+      try {
+        const timeWindow = document.getElementById('metricTimeWindow').value || 5;
+        const service = document.getElementById('metricServiceFilter').value;
+        const limit = document.getElementById('metricLimit').value || 20;
+        
+        // Metrics use Redis
+        let url = `${API_BASE_URL}/api/metrics?limit=${limit}&useRedis=true&windowMinutes=${timeWindow}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.metrics && data.metrics.length > 0) {
+          createMetricsCharts(data.metrics);
+        }
+      } catch (error) {
+        console.error('Error updating metrics charts:', error);
+      }
+    }
+
+    // Chart creation functions for Traces
+    function createTracesCharts(traces) {
+      if (!traces || traces.length === 0) return;
+
+      const sortedTraces = [...traces].sort((a, b) => 
+        new Date(a.start_time) - new Date(b.start_time)
+      );
+      const labels = sortedTraces.map(t => new Date(t.start_time).toLocaleTimeString());
+
+      // Trace Duration Trend (Line Chart)
+      destroyChart('traceDurationLineChart');
+      const durationCtx = document.getElementById('traceDurationLineChart');
+      if (durationCtx) {
+        chartInstances['traceDurationLineChart'] = new Chart(durationCtx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Duration (ms)',
+              data: sortedTraces.map(t => t.duration || 0),
+              borderColor: '#6366f1',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      // Status Code Distribution (Pie Chart)
+      const statusCounts = { success: 0, redirect: 0, error: 0 };
+      traces.forEach(trace => {
+        const code = trace.status_code || 200;
+        if (code >= 200 && code < 300) statusCounts.success++;
+        else if (code >= 300 && code < 400) statusCounts.redirect++;
+        else statusCounts.error++;
+      });
+
+      destroyChart('statusCodePieChart');
+      const statusCtx = document.getElementById('statusCodePieChart');
+      if (statusCtx) {
+        chartInstances['statusCodePieChart'] = new Chart(statusCtx, {
+          type: 'pie',
+          data: {
+            labels: ['Success (2xx)', 'Redirect (3xx)', 'Error (4xx/5xx)'],
+            datasets: [{
+              data: [statusCounts.success, statusCounts.redirect, statusCounts.error],
+              backgroundColor: [
+                'rgba(16, 185, 129, 0.7)',
+                'rgba(245, 158, 11, 0.7)',
+                'rgba(239, 68, 68, 0.7)'
+              ],
+              borderColor: [
+                '#10b981',
+                '#f59e0b',
+                '#ef4444'
+              ],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#f1f5f9', padding: 15 }
+              }
+            }
+          }
+        });
+      }
+
+      // Average Duration by Service (Bar Chart)
+      const serviceDurations = {};
+      const serviceCounts = {};
+      traces.forEach(trace => {
+        const svc = trace.service || 'unknown';
+        if (!serviceDurations[svc]) {
+          serviceDurations[svc] = 0;
+          serviceCounts[svc] = 0;
+        }
+        serviceDurations[svc] += trace.duration || 0;
+        serviceCounts[svc]++;
+      });
+
+      const avgDurations = {};
+      Object.keys(serviceDurations).forEach(svc => {
+        avgDurations[svc] = serviceDurations[svc] / serviceCounts[svc];
+      });
+
+      destroyChart('durationByServiceChart');
+      const serviceBarCtx = document.getElementById('durationByServiceChart');
+      if (serviceBarCtx) {
+        chartInstances['durationByServiceChart'] = new Chart(serviceBarCtx, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(avgDurations),
+            datasets: [{
+              label: 'Avg Duration (ms)',
+              data: Object.values(avgDurations),
+              backgroundColor: 'rgba(99, 102, 241, 0.7)',
+              borderColor: '#6366f1',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#f1f5f9' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' }
+              },
+              y: {
+                ticks: { color: '#cbd5e1' },
+                grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Load traces (from Redis)
+    async function loadTraces() {
+      const content = document.getElementById('tracesContent');
+      const chartsDiv = document.getElementById('tracesCharts');
+      content.innerHTML = '<div class="loading">Loading traces</div>';
+      
+      try {
+        const timeWindow = document.getElementById('traceTimeWindow').value || 5;
+        const service = document.getElementById('traceServiceFilter').value;
+        const traceId = document.getElementById('traceIdFilter').value;
+        const limit = document.getElementById('traceLimit').value || 20;
+        
+        // Traces use Redis
+        let url = `${API_BASE_URL}/api/traces?limit=${limit}&useRedis=true&windowMinutes=${timeWindow}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        if (traceId) url += `&traceId=${encodeURIComponent(traceId)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.traces && data.traces.length > 0) {
+          // Create charts
+          createTracesCharts(data.traces);
+          if (chartsDiv) chartsDiv.style.display = 'grid';
+          
+          let html = '<table class="data-table"><thead><tr><th>Trace ID</th><th>Service</th><th>Operation</th><th>Duration (ms)</th><th>Status</th><th>Start Time</th></tr></thead><tbody>';
+          data.traces.forEach(trace => {
+            const statusBadge = trace.status_code >= 400 ? 'badge-error' : 
+                               trace.status_code >= 300 ? 'badge-warning' : 'badge-success';
+            html += `<tr>
+              <td><code>${trace.trace_id}</code></td>
+              <td>${trace.service}</td>
+              <td>${trace.operation}</td>
+              <td>${trace.duration}</td>
+              <td><span class="badge ${statusBadge}">${trace.status_code}</span></td>
+              <td>${new Date(trace.start_time).toLocaleString()}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          content.innerHTML = html;
+        } else {
+          if (chartsDiv) chartsDiv.style.display = 'none';
+          content.innerHTML = '<div class="empty-state"><p>No traces found</p></div>';
+        }
+      } catch (error) {
+        if (chartsDiv) chartsDiv.style.display = 'none';
+        content.innerHTML = `<div class="empty-state"><p>Error loading traces: ${error.message}</p></div>`;
+      }
+    }
+
+    // Update only charts for traces (for polling)
+    async function updateTracesChartsOnly() {
+      try {
+        const timeWindow = document.getElementById('traceTimeWindow').value || 5;
+        const service = document.getElementById('traceServiceFilter').value;
+        const limit = document.getElementById('traceLimit').value || 20;
+        
+        // Traces use Redis
+        let url = `${API_BASE_URL}/api/traces?limit=${limit}&useRedis=true&windowMinutes=${timeWindow}`;
+        if (service) url += `&service=${encodeURIComponent(service)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.traces && data.traces.length > 0) {
+          createTracesCharts(data.traces);
+        }
+      } catch (error) {
+        console.error('Error updating traces charts:', error);
+      }
+    }
+
+    // Load AI analysis
+    async function loadAIAnalysis() {
+      const content = document.getElementById('aiAnalysisContent');
+      content.innerHTML = '<div class="loading">Loading AI analysis</div>';
+      
+      try {
+        const limit = document.getElementById('aiLimit').value || 10;
+        const response = await fetch(`${API_BASE_URL}/api/ai-analysis?limit=${limit}`);
+        const data = await response.json();
+        
+        if (data.analysis && data.analysis.length > 0) {
+          let html = '';
+          data.analysis.forEach(analysis => {
+            html += `<div class="ai-analysis-card">
+              <h4>🤖 AI Analysis (${analysis.provider})</h4>
+              <div class="timestamp">${new Date(analysis.timestamp).toLocaleString()}</div>
+              <div class="analysis-text">${analysis.analysis || 'No analysis available'}</div>
+            </div>`;
+          });
+          content.innerHTML = html;
+        } else {
+          content.innerHTML = '<div class="empty-state"><p>No AI analysis available yet. Anomalies will trigger AI analysis automatically.</p></div>';
+        }
+      } catch (error) {
+        content.innerHTML = `<div class="empty-state"><p>Error loading AI analysis: ${error.message}</p></div>`;
+      }
+    }
+
+    // Load CloudWatch logs
+    async function loadCloudWatchLogs() {
+      const content = document.getElementById('cloudwatchContent');
+      content.innerHTML = '<div class="loading">Loading CloudWatch logs</div>';
+      
+      try {
+        const typeFilter = document.getElementById('cloudwatchTypeFilter').value;
+        const limit = document.getElementById('cloudwatchLimit').value || 30;
+        
+        let url = `${API_BASE_URL}/api/cloudwatch-logs?limit=${limit}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+          // Filter by type if specified
+          let filteredLogs = data.logs;
+          if (typeFilter) {
+            filteredLogs = data.logs.filter(log => log.type === typeFilter);
+          }
+          
+          if (filteredLogs.length === 0) {
+            content.innerHTML = '<div class="empty-state"><p>No logs found for the selected type</p></div>';
+            return;
+          }
+          
+          let html = '';
+          filteredLogs.forEach((log, index) => {
+            const typeBadge = log.type === 'log' ? 'badge-info' : 
+                             log.type === 'metric' ? 'badge-success' : 'badge-warning';
+            const typeIcon = log.type === 'log' ? '📋' : 
+                            log.type === 'metric' ? '📊' : '🔍';
+            
+            // Extract key info from data
+            let summary = log.snsMessage || '';
+            if (log.type === 'log' && log.data) {
+              summary = `${log.data.level || ''} - ${log.data.message || ''}`.trim();
+            } else if (log.type === 'metric' && log.data) {
+              summary = `${log.data.service || ''} - ${JSON.stringify(log.data.metrics || {})}`;
+            } else if (log.type === 'trace' && log.data) {
+              summary = `${log.data.traceId || ''} - ${log.data.operation || ''}`;
+            }
+            
+            html += `
+              <div class="cloudwatch-log-entry" style="background: var(--bg-card); padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 3px solid var(--${log.type === 'log' ? 'primary' : log.type === 'metric' ? 'success' : 'warning'});">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <span class="badge ${typeBadge}">${typeIcon} ${log.type.toUpperCase()}</span>
+                  <span style="color: var(--text-secondary); font-size: 0.85rem;">${new Date(log.timestamp).toLocaleString()}</span>
+                </div>
+                <div style="color: var(--text-primary); margin-bottom: 8px; font-weight: 500;">${summary || 'No summary'}</div>
+                <details style="margin-top: 8px;">
+                  <summary style="cursor: pointer; color: var(--primary); font-size: 0.9rem; user-select: none;">View Details</summary>
+                  <pre style="margin-top: 10px; padding: 10px; background: var(--bg-dark); border-radius: 4px; overflow-x: auto; font-size: 0.85rem; color: var(--text-secondary);">${JSON.stringify(log.data, null, 2)}</pre>
+                </details>
+              </div>
+            `;
+          });
+          
+          content.innerHTML = html;
+        } else {
+          content.innerHTML = '<div class="empty-state"><p>No CloudWatch logs found. Make sure CloudWatch logging is enabled and messages have been sent.</p></div>';
+        }
+      } catch (error) {
+        content.innerHTML = `<div class="empty-state"><p>Error loading CloudWatch logs: ${error.message}</p></div>`;
+      }
+    }
+
+    // Dynamic data generation helpers (similar to test data generator)
+    const SERVICES = [
+      { name: 'api-gateway', operations: ['GET /api/users', 'POST /api/orders', 'GET /api/products', 'GET /api/data'] },
+      { name: 'auth-service', operations: ['login', 'validateToken', 'refreshToken'] },
+      { name: 'user-service', operations: ['getUser', 'createUser', 'updateUser'] },
+      { name: 'order-service', operations: ['createOrder', 'getOrder', 'cancelOrder'] },
+      { name: 'payment-service', operations: ['processPayment', 'refund', 'getPaymentStatus'] },
+      { name: 'product-service', operations: ['getProduct', 'searchProducts', 'updateInventory'] },
+      { name: 'notification-service', operations: ['sendEmail', 'sendSMS', 'pushNotification'] },
+      { name: 'database', operations: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] },
+    ];
+
+    const LOG_MESSAGES = {
+      info: [
+        'User logged in successfully',
+        'Request processed successfully',
+        'Cache hit for key',
+        'Database query executed',
+        'Payment processed',
+        'Order created',
+        'Email sent successfully',
+        'User session created',
+        'API rate limit check passed',
+        'Health check passed',
+      ],
+      warn: [
+        'High memory usage detected',
+        'Slow database query detected',
+        'API rate limit approaching',
+        'Cache miss occurred',
+        'Connection pool nearly exhausted',
+        'Response time above threshold',
+        'Retry attempt failed',
+        'Unusual request pattern detected',
+      ],
+      error: [
+        'Database connection failed',
+        'Payment processing failed',
+        'Authentication failed',
+        'Invalid request payload',
+        'Service unavailable',
+        'Timeout exceeded',
+        'Out of memory',
+        'Network error',
+        'Invalid credentials',
+        'Rate limit exceeded',
+      ],
+    };
+
+    const SCENARIO_CONFIGS = {
+      normal: {
+        errorRate: 0.02,
+        slowRequestRate: 0.05,
+        requestRate: 1,
+        cpuBase: 30,
+        memoryBase: 40,
+        responseTimeBase: 50,
+        logCount: 5,
+        metricCount: 2,
+        traceCount: 3,
+      },
+      'high-traffic': {
+        errorRate: 0.05,
+        slowRequestRate: 0.15,
+        requestRate: 5,
+        cpuBase: 70,
+        memoryBase: 75,
+        responseTimeBase: 150,
+        logCount: 8,
+        metricCount: 3,
+        traceCount: 5,
+      },
+      errors: {
+        errorRate: 0.25,
+        slowRequestRate: 0.10,
+        requestRate: 1,
+        cpuBase: 55,
+        memoryBase: 65,
+        responseTimeBase: 400,
+        logCount: 10,
+        metricCount: 2,
+        traceCount: 4,
+      },
+      'slow-response': {
+        errorRate: 0.03,
+        slowRequestRate: 0.30,
+        requestRate: 1,
+        cpuBase: 45,
+        memoryBase: 55,
+        responseTimeBase: 1800,
+        logCount: 6,
+        metricCount: 2,
+        traceCount: 3,
+      },
+      anomaly: {
+        errorRate: 0.30,
+        slowRequestRate: 0.40,
+        requestRate: 2,
+        cpuBase: 85,
+        memoryBase: 90,
+        responseTimeBase: 800,
+        logCount: 12,
+        metricCount: 3,
+        traceCount: 5,
+      },
+    };
+
+    // Generate random log
+    function generateLog(config) {
+      const service = SERVICES[Math.floor(Math.random() * SERVICES.length)];
+      const isError = Math.random() < config.errorRate;
+      const isSlow = Math.random() < config.slowRequestRate;
+      
+      let level = 'info';
+      if (isError) {
+        level = 'error';
+      } else if (isSlow) {
+        level = 'warn';
+      } else if (Math.random() < 0.1) {
+        level = 'debug';
+      }
+
+      const messages = LOG_MESSAGES[level] || LOG_MESSAGES.info;
+      const message = messages[Math.floor(Math.random() * messages.length)];
+
+      return {
+        level,
+        message,
+        service: service.name,
+        metadata: {
+          requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+
+    // Generate random metrics
+    function generateMetrics(config) {
+      const service = SERVICES[Math.floor(Math.random() * SERVICES.length)];
+      const baseRequestCount = Math.floor(Math.random() * 200) + 50;
+      const requestCount = Math.floor(baseRequestCount * config.requestRate);
+      const errorCount = Math.floor(requestCount * config.errorRate);
+      
+      const baseResponseTime = config.responseTimeBase + Math.random() * 100;
+      const avgResponseTime = baseResponseTime;
+      
+      const cpuUsage = config.cpuBase + Math.random() * 20;
+      const memoryUsage = config.memoryBase + Math.random() * 15;
+
+      return {
+        service: service.name,
+        metrics: {
+          request_count: requestCount,
+          error_count: errorCount,
+          avg_response_time_ms: Math.floor(avgResponseTime),
+          p95_response_time_ms: Math.floor(avgResponseTime * 1.5),
+          p99_response_time_ms: Math.floor(avgResponseTime * 2),
+          cpu_usage_percent: Math.floor(cpuUsage),
+          memory_usage_percent: Math.floor(memoryUsage),
+          active_connections: Math.floor(Math.random() * 200) + 50,
+          throughput_bytes_per_sec: Math.floor(Math.random() * 1000000) + 500000,
+        },
+      };
+    }
+
+    // Generate random trace
+    function generateTrace(config) {
+      const service = SERVICES[Math.floor(Math.random() * SERVICES.length)];
+      const operation = service.operations[Math.floor(Math.random() * service.operations.length)];
+      const isError = Math.random() < config.errorRate;
+      const isSlow = Math.random() < config.slowRequestRate;
+      
+      const baseDuration = config.responseTimeBase + Math.random() * 200;
+      const duration = isSlow ? baseDuration * 2 : baseDuration;
+      const statusCode = isError ? 500 : (Math.random() < 0.1 ? 400 : 200);
+
+      return {
+        traceId: `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        service: service.name,
+        operation: operation,
+        startTime: new Date().toISOString(),
+        duration: Math.floor(duration),
+        statusCode: statusCode,
+        spans: [],
+      };
+    }
+
+    // Send scenario test data
+    async function sendScenario(scenario) {
+      const statusDiv = document.getElementById('scenarioStatus');
+      const messageDiv = document.getElementById('scenarioMessage');
+      statusDiv.style.display = 'block';
+      messageDiv.textContent = `Generating and sending ${scenario} scenario data...`;
+      messageDiv.style.color = 'var(--warning)';
+
+      try {
+        const config = SCENARIO_CONFIGS[scenario];
+        if (!config) {
+          throw new Error('Unknown scenario');
+        }
+
+        // Generate dynamic logs
+        const logs = [];
+        for (let i = 0; i < config.logCount; i++) {
+          logs.push(generateLog(config));
+        }
+
+        // Generate dynamic metrics
+        const metrics = [];
+        for (let i = 0; i < config.metricCount; i++) {
+          metrics.push(generateMetrics(config));
+        }
+
+        // Generate dynamic traces
+        const traces = [];
+        for (let i = 0; i < config.traceCount; i++) {
+          traces.push(generateTrace(config));
+        }
+
+        // Send logs
+        let logsSent = 0;
+        for (const log of logs) {
+          try {
+            await fetch(`${API_BASE_URL}/api/logs`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(log)
+            });
+            logsSent++;
+          } catch (err) {
+            console.error('Failed to send log:', err);
+          }
+        }
+
+        // Send metrics
+        let metricsSent = 0;
+        for (const metric of metrics) {
+          try {
+            await fetch(`${API_BASE_URL}/api/metrics`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(metric)
+            });
+            metricsSent++;
+          } catch (err) {
+            console.error('Failed to send metric:', err);
+          }
+        }
+
+        // Send traces
+        let tracesSent = 0;
+        for (const trace of traces) {
+          try {
+            await fetch(`${API_BASE_URL}/api/traces`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(trace)
+            });
+            tracesSent++;
+          } catch (err) {
+            console.error('Failed to send trace:', err);
+          }
+        }
+
+        messageDiv.textContent = `✅ ${scenario} scenario sent! ${logsSent} logs, ${metricsSent} metrics, ${tracesSent} traces. Data will appear in charts shortly.`;
+        messageDiv.style.color = 'var(--success)';
+        
+        // Reload dashboard stats and current tab
+        setTimeout(() => {
+          // loadDashboardStats();
+          if (document.getElementById('logs-tab').classList.contains('active')) loadLogs();
+          if (document.getElementById('metrics-tab').classList.contains('active')) loadMetrics();
+          if (document.getElementById('traces-tab').classList.contains('active')) loadTraces();
+        }, 1500);
+      } catch (error) {
+        messageDiv.textContent = `❌ Error sending scenario: ${error.message}`;
+        messageDiv.style.color = 'var(--error)';
+      }
+    }
+
+    // Auto-refresh polling for charts and data (every 5 minutes)
+    let chartRefreshInterval = null;
+    let currentActiveTab = 'logs';
+
+    function startChartPolling() {
+      // Clear existing interval if any
+      if (chartRefreshInterval) {
+        clearInterval(chartRefreshInterval);
+      }
+
+      // Update charts and data every 5 minutes (300000 ms)
+      chartRefreshInterval = setInterval(() => {
+        if (currentActiveTab === 'logs') {
+          updateLogChartsOnly(); // Logs: database
+        } else if (currentActiveTab === 'metrics') {
+          loadMetrics(); // Metrics: Redis - refresh full data including charts
+        } else if (currentActiveTab === 'traces') {
+          loadTraces(); // Traces: Redis - refresh full data including charts
+        }
+        // AI Analysis and CloudWatch don't have charts, so skip
+      }, 300000); // 5 minutes
+    }
+
+    function stopChartPolling() {
+      if (chartRefreshInterval) {
+        clearInterval(chartRefreshInterval);
+        chartRefreshInterval = null;
+      }
+    }
+
+    // Tab switching
+    function switchTab(tabName, clickedElement) {
+      // Update current active tab
+      currentActiveTab = tabName;
+      
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+      
+      // Show selected tab
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      // Activate the clicked button (if provided)
+      if (clickedElement) {
+        clickedElement.classList.add('active');
+      } else {
+        // Find the button by text content
+        document.querySelectorAll('.tab').forEach(btn => {
+          if (btn.textContent.includes(tabName === 'logs' ? '📋' : 
+                                       tabName === 'metrics' ? '📊' : 
+                                       tabName === 'traces' ? '🔍' : 
+                                       tabName === 'ai-analysis' ? '🤖' : 
+                                       tabName === 'cloudwatch' ? '☁️' : '')) {
+            btn.classList.add('active');
+          }
+        });
+      }
+      
+      // Load data for the tab immediately
+      if (tabName === 'logs') loadLogs();
+      else if (tabName === 'metrics') loadMetrics();
+      else if (tabName === 'traces') loadTraces();
+      else if (tabName === 'ai-analysis') loadAIAnalysis();
+      else if (tabName === 'cloudwatch') loadCloudWatchLogs();
+      
+      // Restart chart polling for the new active tab
+      startChartPolling();
+    }
+
+    // Initialize dashboard (no automatic stats loading - user can refresh manually if needed)
+    // loadDashboardStats(); // Removed to prevent repeated calls
+    loadLogs();
+    
+    // Start chart polling for metrics and traces only (every 5 minutes)
+    startChartPolling();
+    
+    // Stop polling when page is hidden (to save resources)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopChartPolling();
+      } else {
+        startChartPolling();
+      }
+    });
+  </script>
+</body>
+</html>
+

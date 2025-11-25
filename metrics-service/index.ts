@@ -85,6 +85,36 @@ async function processMetricMessage(messageBody: string, messageAttributes?: any
 
     const metrics = metricData.metrics;
 
+    // Validate and set default values for required fields
+    if (!metrics.request_count && metrics.request_count !== 0) {
+      console.warn('⚠️ Missing request_count, setting default to 0');
+      metrics.request_count = 0;
+    }
+    if (!metrics.error_count && metrics.error_count !== 0) {
+      metrics.error_count = 0;
+    }
+    if (!metrics.avg_response_time_ms && metrics.avg_response_time_ms !== 0) {
+      metrics.avg_response_time_ms = 0;
+    }
+    if (!metrics.p95_response_time_ms && metrics.p95_response_time_ms !== 0) {
+      metrics.p95_response_time_ms = 0;
+    }
+    if (!metrics.p99_response_time_ms && metrics.p99_response_time_ms !== 0) {
+      metrics.p99_response_time_ms = 0;
+    }
+    if (!metrics.cpu_usage_percent && metrics.cpu_usage_percent !== 0) {
+      metrics.cpu_usage_percent = 0;
+    }
+    if (!metrics.memory_usage_percent && metrics.memory_usage_percent !== 0) {
+      metrics.memory_usage_percent = 0;
+    }
+    if (!metrics.active_connections && metrics.active_connections !== 0) {
+      metrics.active_connections = 0;
+    }
+    if (!metrics.throughput_bytes_per_sec && metrics.throughput_bytes_per_sec !== 0) {
+      metrics.throughput_bytes_per_sec = 0;
+    }
+
     console.log(`[${new Date().toISOString()}] Processing metrics:`, {
       service: metricData.service,
       requests: metrics.request_count,
@@ -101,7 +131,8 @@ async function processMetricMessage(messageBody: string, messageAttributes?: any
     return true;
   } catch (error: any) {
     console.error('❌ Error processing metrics message:', error.message);
-    console.error('   Raw message body:', messageBody.substring(0, 200)); // Show first 200 chars for debugging
+    console.error('   Raw message body:', messageBody.substring(0, 500)); // Show first 500 chars for debugging
+    console.error('   Full parsed message:', JSON.stringify(parsedMessage, null, 2));
     throw error;
   }
 }

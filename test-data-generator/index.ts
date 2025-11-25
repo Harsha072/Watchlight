@@ -299,7 +299,12 @@ async function sendLog(logData: LogData): Promise<void> {
     await axios.post(`${GATEWAY_URL}/api/logs`, logData);
     requestCounter++;
   } catch (error: any) {
-    console.error('❌ Failed to send log:', error.message);
+    const errorMsg = error.response?.data?.error || error.message || error.code || 'Unknown error';
+    const statusCode = error.response?.status || 'N/A';
+    console.error(`❌ Failed to send log: ${errorMsg} (Status: ${statusCode})`);
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`   ⚠️  Gateway not reachable at ${GATEWAY_URL}. Is the gateway running?`);
+    }
   }
 }
 
@@ -307,7 +312,12 @@ async function sendMetrics(metricData: MetricData): Promise<void> {
   try {
     await axios.post(`${GATEWAY_URL}/api/metrics`, metricData);
   } catch (error: any) {
-    console.error('❌ Failed to send metrics:', error.message);
+    const errorMsg = error.response?.data?.error || error.message || error.code || 'Unknown error';
+    const statusCode = error.response?.status || 'N/A';
+    console.error(`❌ Failed to send metrics: ${errorMsg} (Status: ${statusCode})`);
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`   ⚠️  Gateway not reachable at ${GATEWAY_URL}. Is the gateway running?`);
+    }
   }
 }
 
@@ -315,7 +325,12 @@ async function sendTrace(traceData: TraceData): Promise<void> {
   try {
     await axios.post(`${GATEWAY_URL}/api/traces`, traceData);
   } catch (error: any) {
-    console.error('❌ Failed to send trace:', error.message);
+    const errorMsg = error.response?.data?.error || error.message || error.code || 'Unknown error';
+    const statusCode = error.response?.status || 'N/A';
+    console.error(`❌ Failed to send trace: ${errorMsg} (Status: ${statusCode})`);
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`   ⚠️  Gateway not reachable at ${GATEWAY_URL}. Is the gateway running?`);
+    }
   }
 }
 

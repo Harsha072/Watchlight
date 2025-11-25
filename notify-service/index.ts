@@ -22,10 +22,13 @@ const SMTP_PASS = process.env.SMTP_PASS || '';
 const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || '';
 
 interface NotificationMessage {
+  type?: string;
   timestamp: string;
-  severity: 'info' | 'warning' | 'error' | 'critical';
+  severity: 'info' | 'warning' | 'error' | 'critical' | 'low' | 'medium' | 'high';
   message: string;
-  analysis?: any[];
+  metric?: string;
+  analysis?: string | any[]; // AI analysis text (string) or legacy format (array)
+  provider?: string; // AI provider (groq/openai)
   observabilityData?: any;
 }
 
@@ -37,21 +40,28 @@ async function sendSlackNotification(notification: NotificationMessage): Promise
   }
 
   try {
-    const severityEmoji = {
+    const severityEmoji: Record<string, string> = {
       info: 'ℹ️',
       warning: '⚠️',
       error: '❌',
       critical: '🚨',
+      low: 'ℹ️',
+      medium: '⚠️',
+      high: '❌',
     };
 
+    const severity = notification.severity || 'info';
+    const message = notification.message || 'Notification received';
+    const timestamp = notification.timestamp || new Date().toISOString();
+    
     const slackMessage = {
-      text: `${severityEmoji[notification.severity]} *Observability Alert*`,
+      text: `${severityEmoji[severity] || 'ℹ️'} *Observability Alert*`,
       blocks: [
         {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: `${severityEmoji[notification.severity]} ${notification.message}`,
+            text: `${severityEmoji[severity] || 'ℹ️'} ${message}`,
           },
         },
         {
@@ -59,19 +69,28 @@ async function sendSlackNotification(notification: NotificationMessage): Promise
           fields: [
             {
               type: 'mrkdwn',
-              text: `*Severity:*\n${notification.severity.toUpperCase()}`,
+              text: `*Severity:*\n${severity.toUpperCase()}`,
             },
             {
               type: 'mrkdwn',
-              text: `*Time:*\n${new Date(notification.timestamp).toLocaleString()}`,
+              text: `*Time:*\n${new Date(timestamp).toLocaleString()}`,
             },
           ],
         },
       ],
     };
 
-    // Add analysis summary if available
-    if (notification.analysis && notification.analysis.length > 0) {
+    // Add analysis if available (new format with string)
+    if (notification.analysis && typeof notification.analysis === 'string') {
+      slackMessage.blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*AI Analysis (${notification.provider?.toUpperCase() || 'AI'}):*\n${notification.analysis.substring(0, 500)}...`,
+        },
+      });
+    } else if (notification.analysis && Array.isArray(notification.analysis) && notification.analysis.length > 0) {
+      // Legacy format
       const analysisText = notification.analysis
         .map((a: any) => `*${a.provider.toUpperCase()}*: ${a.summary.substring(0, 200)}...`)
         .join('\n\n');
@@ -96,6 +115,40 @@ async function sendSlackNotification(notification: NotificationMessage): Promise
   }
 }
 
+// Send text message (console output for now)
+function sendTextMessage(notification: NotificationMessage): void {
+  console.log('\n📱 ===== TEXT MESSAGE NOTIFICATION =====');
+  console.log(`🚨 ALERT: ${notification.message || 'Notification received'}`);
+  console.log(`Severity: ${(notification.severity || 'info').toUpperCase()}`);
+  console.log(`Time: ${notification.timestamp ? new Date(notification.timestamp).toLocaleString() : new Date().toLocaleString()}`);
+  
+  if (notification.metric) {
+    console.log(`Metric: ${notification.metric}`);
+  }
+  
+  if (notification.analysis) {
+    console.log('\n--- AI Analysis ---');
+    if (typeof notification.analysis === 'string') {
+      console.log(notification.analysis);
+    } else if (Array.isArray(notification.analysis)) {
+      notification.analysis.forEach((item: any, index: number) => {
+        if (typeof item === 'string') {
+          console.log(`${index + 1}. ${item}`);
+        } else if (item && typeof item === 'object') {
+          console.log(`${index + 1}. ${item.provider || 'AI'}: ${item.summary || JSON.stringify(item)}`);
+        }
+      });
+    } else {
+      console.log(JSON.stringify(notification.analysis, null, 2));
+    }
+    if (notification.provider) {
+      console.log(`(Analysis by: ${notification.provider.toUpperCase()})`);
+    }
+  }
+  
+  console.log('========================================\n');
+}
+
 // Send email notification
 async function sendEmailNotification(notification: NotificationMessage): Promise<void> {
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !NOTIFICATION_EMAIL) {
@@ -106,17 +159,31 @@ async function sendEmailNotification(notification: NotificationMessage): Promise
   try {
     // For now, we'll use a simple HTTP email service or log it
     // In production, you'd use nodemailer or similar
-    const emailSubject = `[${notification.severity.toUpperCase()}] ${notification.message}`;
+    const severity = notification.severity || 'info';
+    const message = notification.message || 'Notification received';
+    const timestamp = notification.timestamp || new Date().toISOString();
+    
+    const emailSubject = `[${severity.toUpperCase()}] ${message}`;
+    let analysisText = '';
+    if (notification.analysis) {
+      if (typeof notification.analysis === 'string') {
+        analysisText = `Analysis:\n${notification.analysis}`;
+      } else if (Array.isArray(notification.analysis) && notification.analysis.length > 0) {
+        analysisText = `Analysis:\n${notification.analysis.map((a: any) => {
+          if (typeof a === 'string') return a;
+          return `\n${(a.provider || 'AI').toUpperCase()}:\n${a.summary || JSON.stringify(a)}`;
+        }).join('\n\n')}`;
+      }
+    }
+    
     const emailBody = `
 Observability Alert
 
-Severity: ${notification.severity.toUpperCase()}
-Time: ${new Date(notification.timestamp).toLocaleString()}
-Message: ${notification.message}
+Severity: ${severity.toUpperCase()}
+Time: ${new Date(timestamp).toLocaleString()}
+Message: ${message}
 
-${notification.analysis && notification.analysis.length > 0
-  ? `Analysis:\n${notification.analysis.map((a: any) => `\n${a.provider.toUpperCase()}:\n${a.summary}`).join('\n\n')}`
-  : ''}
+${analysisText}
     `.trim();
 
     console.log(`📧 Email notification prepared:`);
@@ -150,7 +217,21 @@ async function processNotificationMessage(messageBody: string): Promise<void> {
       notification = sqsMessage;
     }
 
+    // Validate and set default values for required fields
+    if (!notification.severity) {
+      notification.severity = 'info'; // Default severity
+    }
+    if (!notification.message) {
+      notification.message = 'Notification received';
+    }
+    if (!notification.timestamp) {
+      notification.timestamp = new Date().toISOString();
+    }
+
     console.log(`📨 Processing notification: ${notification.severity} - ${notification.message}`);
+
+    // Send text message (console output for now, can be extended to SMS/WhatsApp)
+    sendTextMessage(notification);
 
     // Send notifications via all configured channels
     const promises: Promise<void>[] = [];
@@ -173,6 +254,10 @@ async function processNotificationMessage(messageBody: string): Promise<void> {
     console.log('✅ Notification processed');
   } catch (error: any) {
     console.error('❌ Error processing notification:', error.message);
+    console.error('   Raw message body:', messageBody.substring(0, 500));
+    if (error.stack) {
+      console.error('   Stack:', error.stack);
+    }
     throw error;
   }
 }

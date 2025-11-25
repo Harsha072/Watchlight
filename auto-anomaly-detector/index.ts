@@ -1,7 +1,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { testConnection as testDbConnection, getRecentLogs, getRecentTraces, closeDatabase } from './services/database';
-import { testConnection as testRedisConnection, getRecentSummaries, closeRedis } from './services/redis';
+import { 
+  testConnection as testRedisConnection, 
+  getRecentSummaries, 
+  closeRedis,
+} from './services/redis';
 import { detectAnomalies } from './services/anomaly-detector';
 import { analyzeAnomaly } from './services/ai-analyzer';
 import { sendNotification } from './services/notify';
@@ -15,6 +19,51 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const DETECTION_INTERVAL_MINUTES = parseInt(process.env.DETECTION_INTERVAL_MINUTES || '1', 10);
 const HISTORICAL_WINDOWS = parseInt(process.env.HISTORICAL_WINDOWS || '12', 10);
 const DATA_LOOKBACK_MINUTES = parseInt(process.env.DATA_LOOKBACK_MINUTES || '15', 10);
+// Cooldown period in minutes - don't analyze the same anomaly within this time window
+const ANOMALY_COOLDOWN_MINUTES = parseInt(process.env.ANOMALY_COOLDOWN_MINUTES || '30', 10);
+
+// Simple in-memory cache to track recently analyzed anomalies
+// Key: anomaly identifier (e.g., "error_rate:high"), Value: timestamp when analyzed
+const recentAnomalies = new Map<string, number>();
+
+/**
+ * Generate a simple key for an anomaly to track duplicates
+ * Format: "metric:severity" (e.g., "error_rate:high")
+ */
+function getAnomalyKey(anomaly: { metric: string; severity: string }): string {
+  return `${anomaly.metric}:${anomaly.severity}`;
+}
+
+/**
+ * Check if we've analyzed this anomaly recently
+ * Returns true if analyzed within cooldown period
+ */
+function wasAnalyzedRecently(anomalyKey: string): boolean {
+  const lastAnalyzed = recentAnomalies.get(anomalyKey);
+  if (!lastAnalyzed) {
+    return false; // Never analyzed
+  }
+  
+  const now = Date.now();
+  const minutesSince = (now - lastAnalyzed) / (1000 * 60);
+  return minutesSince < ANOMALY_COOLDOWN_MINUTES;
+}
+
+/**
+ * Mark an anomaly as analyzed (store timestamp)
+ */
+function markAsAnalyzed(anomalyKey: string): void {
+  recentAnomalies.set(anomalyKey, Date.now());
+  
+  // Clean up old entries (older than cooldown period) to prevent memory leak
+  const now = Date.now();
+  const cooldownMs = ANOMALY_COOLDOWN_MINUTES * 60 * 1000;
+  for (const [key, timestamp] of recentAnomalies.entries()) {
+    if (now - timestamp > cooldownMs) {
+      recentAnomalies.delete(key);
+    }
+  }
+}
 
 /**
  * Main anomaly detection cycle
@@ -66,12 +115,25 @@ async function runAnomalyDetection(): Promise<void> {
       return; // Do nothing if no anomaly
     }
 
-    // Step 3: Anomaly detected! Fetch detailed data and analyze
+    // Step 3: Anomaly detected! Check cooldown before analyzing
     console.log(`\n🚨 ANOMALY DETECTED!`);
     console.log(`   Metric: ${anomaly.metric}`);
     console.log(`   Severity: ${anomaly.severity.toUpperCase()}`);
     console.log(`   Message: ${anomaly.message}`);
     console.log(`   Current: ${anomaly.currentValue}, Expected: ${anomaly.expectedRange.min} - ${anomaly.expectedRange.max}`);
+
+    // Generate a simple key for this anomaly (e.g., "error_rate:high")
+    const anomalyKey = getAnomalyKey(anomaly);
+
+    // Check if we've analyzed this anomaly recently
+    if (wasAnalyzedRecently(anomalyKey)) {
+      console.log(`\n⏸️  This anomaly was recently analyzed (within last ${ANOMALY_COOLDOWN_MINUTES} minutes)`);
+      console.log(`   Skipping AI analysis to avoid duplicate notifications.`);
+      console.log(`   The anomaly is still being monitored and will be analyzed again after cooldown.\n`);
+      return; // Skip analysis but continue monitoring
+    }
+
+    console.log(`\n✅ Anomaly is new or cooldown expired. Proceeding with analysis...`);
 
     // Step 4: Fetch recent logs and traces from PostgreSQL for context
     console.log(`\n📥 Fetching recent logs and traces from PostgreSQL...`);
@@ -97,7 +159,11 @@ async function runAnomalyDetection(): Promise<void> {
 
     console.log(`   ✅ AI analysis complete (${aiAnalysis.provider})`);
 
-    // Step 6: Send notification to SQS
+    // Step 6: Mark this anomaly as analyzed (store in memory with timestamp)
+    markAsAnalyzed(anomalyKey);
+    console.log(`   🔒 Cooldown set: This anomaly won't be analyzed again for ${ANOMALY_COOLDOWN_MINUTES} minutes`);
+
+    // Step 7: Send notification to SQS
     console.log(`\n📤 Sending notification to Notify Service...`);
     await sendNotification({
       type: 'anomaly_detected',
@@ -143,6 +209,7 @@ async function startAnomalyDetector() {
   console.log(`   Detection Interval: ${DETECTION_INTERVAL_MINUTES} minute(s)`);
   console.log(`   Historical Windows: ${HISTORICAL_WINDOWS}`);
   console.log(`   Data Lookback: ${DATA_LOOKBACK_MINUTES} minutes`);
+  console.log(`   Anomaly Cooldown: ${ANOMALY_COOLDOWN_MINUTES} minutes`);
   console.log('');
 
   // Check database connection

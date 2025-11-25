@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { SNS } from 'aws-sdk';
 import dotenv from 'dotenv';
 import path from 'path';
+import { logToCloudWatch } from '../services/cloudwatch';
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -39,6 +40,9 @@ router.post('/api/metrics', async (req: Request, res: Response) => {
         details: 'OBSERVABILITY_TOPIC_ARN environment variable is not set'
       });
     }
+
+    // Log to CloudWatch BEFORE publishing to SNS
+    await logToCloudWatch('metric', `Metrics from ${metricData.service}`, metricData);
 
     const params = {
       TopicArn: TOPIC_ARN,
