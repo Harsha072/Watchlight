@@ -1,0 +1,23 @@
+{
+  "name": "watchlight",
+  "version": "1.0.0",
+  "description": "API Observability Mesh - Complete observability platform",
+  "private": true,
+  "scripts": {
+    "start:all": "node scripts/start-all.js",
+    "start:services": "concurrently -n gateway,logs,metrics,trace,aggregator,detector -c \"bgBlue.bold,bgGreen.bold,bgYellow.bold,bgMagenta.bold,bgCyan.bold,bgRed.bold\" \"npm run dev --prefix gateway\" \"npm run dev --prefix logs-service\" \"npm run dev --prefix metrics-service\" \"npm run dev --prefix trace-service\" \"npm run dev --prefix cron-aggregator\" \"npm run dev --prefix auto-anomaly-detector\"",
+    "start:infra": "docker-compose up -d",
+    "start:generator": "npm run dev --prefix test-data-generator",
+    "setup:localstack": "node infra/localstack-setup.js",
+    "stop:all": "node scripts/stop-all.js",
+    "stop:infra": "docker-compose down",
+    "check:env": "node scripts/check-env.js"
+  },
+  "keywords": ["observability", "monitoring", "api", "microservices"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
