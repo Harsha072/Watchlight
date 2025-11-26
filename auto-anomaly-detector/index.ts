@@ -17,7 +17,7 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 // Note: REDIS_URL is constructed in services/redis.ts from Upstash credentials
 // We don't need to construct it here since redis.ts handles the connection
 const DETECTION_INTERVAL_MINUTES = parseInt(process.env.DETECTION_INTERVAL_MINUTES || '1', 10);
-const HISTORICAL_WINDOWS = parseInt(process.env.HISTORICAL_WINDOWS || '12', 10);
+const HISTORICAL_WINDOWS = parseInt(process.env.HISTORICAL_WINDOWS || '5', 10);
 const DATA_LOOKBACK_MINUTES = parseInt(process.env.DATA_LOOKBACK_MINUTES || '15', 10);
 // Cooldown period in minutes - don't analyze the same anomaly within this time window
 const ANOMALY_COOLDOWN_MINUTES = parseInt(process.env.ANOMALY_COOLDOWN_MINUTES || '30', 10);

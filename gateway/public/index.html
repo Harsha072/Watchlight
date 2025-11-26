@@ -1208,6 +1208,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
 
     // Load metrics (from Redis)
     async function loadMetrics() {
+      console.log('[loadMetrics] Starting to load metrics from Redis...');
       const content = document.getElementById('metricsContent');
       const chartsDiv = document.getElementById('metricsCharts');
       content.innerHTML = '<div class="loading">Loading metrics</div>';
@@ -1221,6 +1222,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         let url = `${API_BASE_URL}/api/metrics?limit=${limit}&useRedis=true&windowMinutes=${timeWindow}`;
         if (service) url += `&service=${encodeURIComponent(service)}`;
         
+        console.log(`[loadMetrics] Fetching from: ${url}`);
         const response = await fetch(url);
         const data = await response.json();
         
@@ -1428,6 +1430,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
 
     // Load traces (from Redis)
     async function loadTraces() {
+      console.log('[loadTraces] Starting to load traces from Redis...');
       const content = document.getElementById('tracesContent');
       const chartsDiv = document.getElementById('tracesCharts');
       content.innerHTML = '<div class="loading">Loading traces</div>';
@@ -1443,6 +1446,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         if (service) url += `&service=${encodeURIComponent(service)}`;
         if (traceId) url += `&traceId=${encodeURIComponent(traceId)}`;
         
+        console.log(`[loadTraces] Fetching from: ${url}`);
         const response = await fetch(url);
         const data = await response.json();
         
@@ -1873,7 +1877,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
       }
     }
 
-    // Auto-refresh polling for charts and data (every 5 minutes)
+    // Auto-refresh polling for charts and data (every 30 seconds for testing, change to 300000 for production)
     let chartRefreshInterval = null;
     let currentActiveTab = 'logs';
 
@@ -1883,17 +1887,29 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         clearInterval(chartRefreshInterval);
       }
 
-      // Update charts and data every 5 minutes (300000 ms)
+      // Update charts and data every 30 seconds (30000 ms) for testing
+      // Change to 300000 (5 minutes) for production
       chartRefreshInterval = setInterval(() => {
+        const now = new Date().toLocaleTimeString();
+        console.log(`[Polling] Active tab: ${currentActiveTab}, Time: ${now}`);
+        
         if (currentActiveTab === 'logs') {
+          console.log('[Polling] Refreshing logs charts...');
           updateLogChartsOnly(); // Logs: database
         } else if (currentActiveTab === 'metrics') {
+          console.log('[Polling] Refreshing metrics from Redis...');
           loadMetrics(); // Metrics: Redis - refresh full data including charts
         } else if (currentActiveTab === 'traces') {
+          console.log('[Polling] Refreshing traces from Redis...');
           loadTraces(); // Traces: Redis - refresh full data including charts
+        } else if (currentActiveTab === 'ai-analysis') {
+          console.log('[Polling] Refreshing AI analysis...');
+          loadAIAnalysis();
+        } else if (currentActiveTab === 'cloudwatch') {
+          console.log('[Polling] Refreshing CloudWatch logs...');
+          loadCloudWatchLogs();
         }
-        // AI Analysis and CloudWatch don't have charts, so skip
-      }, 300000); // 5 minutes
+      }, 30000); // 30 seconds for testing (change to 300000 for production - 5 minutes)
     }
 
     function stopChartPolling() {

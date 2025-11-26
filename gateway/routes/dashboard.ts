@@ -11,10 +11,12 @@ import { getAggregatedSummaries, transformSummariesForDashboard } from '../servi
 
 const router = Router();
 
-// GET /api/dashboard/stats - Get dashboard statistics
+// GET /api/dashboard/stats - Get dashboard statistics (always from database)
 router.get('/api/dashboard/stats', async (req: Request, res: Response) => {
   try {
+    console.log(`📊 [GET /api/dashboard/stats] Request received - Fetching from DATABASE`);
     const stats = await getDashboardStats();
+    console.log(`   ✅ [DATABASE] Dashboard stats: ${stats.logs?.total || 0} logs, ${stats.metrics?.total || 0} metrics, ${stats.traces?.total || 0} traces`);
     res.status(200).json(stats);
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
@@ -89,9 +91,14 @@ router.get('/api/metrics', async (req: Request, res: Response) => {
   try {
     const { limit, service, startTime, endTime, windowMinutes, useRedis } = req.query;
     
+    // Log request details
+    console.log(`📊 [GET /api/metrics] Request received - useRedis: ${useRedis}, windowMinutes: ${windowMinutes}, service: ${service || 'all'}, limit: ${limit || 'default'}`);
+    
     // If useRedis is true, fetch from Redis
     if (useRedis === 'true') {
       const window = windowMinutes ? parseInt(windowMinutes as string) : 5;
+      console.log(`   🔴 Fetching metrics from REDIS (window: ${window} minutes)`);
+      
       const summaries = await getAggregatedSummaries(window);
       const transformed = transformSummariesForDashboard(summaries);
       
@@ -106,6 +113,8 @@ router.get('/api/metrics', async (req: Request, res: Response) => {
       const limitNum = limit ? parseInt(limit as string) : 20;
       metrics = metrics.slice(0, limitNum);
       
+      console.log(`   ✅ [REDIS] Returning ${metrics.length} metrics`);
+      
       return res.status(200).json({
         success: true,
         count: metrics.length,
@@ -116,12 +125,15 @@ router.get('/api/metrics', async (req: Request, res: Response) => {
     }
     
     // Fallback to database
+    console.log(`   🗄️  Fetching metrics from DATABASE`);
     const metrics = await getMetrics({
       limit: limit ? parseInt(limit as string) : undefined,
       service: service as string,
       startTime: startTime as string,
       endTime: endTime as string,
     });
+
+    console.log(`   ✅ [DATABASE] Returning ${metrics.length} metrics`);
 
     res.status(200).json({
       success: true,
@@ -143,9 +155,14 @@ router.get('/api/traces', async (req: Request, res: Response) => {
   try {
     const { limit, traceId, service, startTime, endTime, windowMinutes, useRedis } = req.query;
     
+    // Log request details
+    console.log(`🔍 [GET /api/traces] Request received - useRedis: ${useRedis}, windowMinutes: ${windowMinutes}, service: ${service || 'all'}, limit: ${limit || 'default'}`);
+    
     // If useRedis is true, fetch from Redis
     if (useRedis === 'true') {
       const window = windowMinutes ? parseInt(windowMinutes as string) : 5;
+      console.log(`   🔴 Fetching traces from REDIS (window: ${window} minutes)`);
+      
       const summaries = await getAggregatedSummaries(window);
       const transformed = transformSummariesForDashboard(summaries);
       
@@ -163,6 +180,8 @@ router.get('/api/traces', async (req: Request, res: Response) => {
       const limitNum = limit ? parseInt(limit as string) : 20;
       traces = traces.slice(0, limitNum);
       
+      console.log(`   ✅ [REDIS] Returning ${traces.length} traces`);
+      
       return res.status(200).json({
         success: true,
         count: traces.length,
@@ -173,6 +192,7 @@ router.get('/api/traces', async (req: Request, res: Response) => {
     }
     
     // Fallback to database
+    console.log(`   🗄️  Fetching traces from DATABASE`);
     const traces = await getTraces({
       limit: limit ? parseInt(limit as string) : undefined,
       traceId: traceId as string,
@@ -180,6 +200,8 @@ router.get('/api/traces', async (req: Request, res: Response) => {
       startTime: startTime as string,
       endTime: endTime as string,
     });
+
+    console.log(`   ✅ [DATABASE] Returning ${traces.length} traces`);
 
     res.status(200).json({
       success: true,

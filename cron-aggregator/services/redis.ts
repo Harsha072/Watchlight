@@ -87,14 +87,14 @@ export async function storeAggregatedSummaries(summaries: any): Promise<void> {
     // Store the full aggregated summary
     await redisClient.setEx(
       key,
-      3600, // Expire after 1 hour
+      7200, // Expire after 2 hours
       JSON.stringify(summaries)
     );
     
     // Store latest summary (overwrites previous)
     await redisClient.setEx(
       'aggregated:latest',
-      3600,
+      7200, // Expire after 2 hours
       JSON.stringify(summaries)
     );
     
@@ -104,7 +104,7 @@ export async function storeAggregatedSummaries(summaries: any): Promise<void> {
         const serviceKey = `service:${metric.service}:metrics`;
         await redisClient.setEx(
           serviceKey,
-          3600,
+          7200, // Expire after 2 hours
           JSON.stringify(metric)
         );
       }
@@ -114,7 +114,7 @@ export async function storeAggregatedSummaries(summaries: any): Promise<void> {
     if (summaries.slowEndpoints && summaries.slowEndpoints.length > 0) {
       await redisClient.setEx(
         'slow:endpoints',
-        3600,
+        7200, // Expire after 2 hours
         JSON.stringify(summaries.slowEndpoints)
       );
     }
@@ -123,7 +123,7 @@ export async function storeAggregatedSummaries(summaries: any): Promise<void> {
     if (summaries.errorCounts) {
       await redisClient.setEx(
         'errors:counts',
-        3600,
+        7200, // Expire after 2 hours
         JSON.stringify(summaries.errorCounts)
       );
     }
@@ -132,7 +132,7 @@ export async function storeAggregatedSummaries(summaries: any): Promise<void> {
     if (summaries.requestVolume) {
       await redisClient.setEx(
         'volume:requests',
-        3600,
+        7200, // Expire after 2 hours
         JSON.stringify(summaries.requestVolume)
       );
     }
