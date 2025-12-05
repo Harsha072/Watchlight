@@ -188,6 +188,7 @@ async function consumeLogs() {
   let retries = 0;
   let connected = false;
 
+  console.log('🔍 Logs Service: Testing database connection...');
   while (retries < maxRetries && !connected) {
     connected = await testConnection();
     if (!connected) {
@@ -200,13 +201,15 @@ async function consumeLogs() {
   }
 
   if (!connected) {
-    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    console.error('❌ Logs Service: Failed to connect to PostgreSQL after multiple retries');
     console.error('   Please check:');
     console.error('   1. Docker container is running: docker-compose ps');
     console.error('   2. DATABASE_URL is correct in .env file');
     console.error('   3. PostgreSQL is healthy: docker-compose logs postgres');
     process.exit(1);
   }
+  
+  console.log('✅ Logs Service: Connected to PostgreSQL database');
 
   // Initialize database tables
   try {

@@ -257,6 +257,8 @@ async function startAggregator() {
     process.exit(1);
   }
   
+  // Test database connection
+  console.log('🔍 Cron Aggregator: Testing database connection...');
   const maxRetries = 5;
   let retries = 0;
   let dbConnected = false;
@@ -273,11 +275,14 @@ async function startAggregator() {
   }
   
   if (!dbConnected) {
-    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    console.error('❌ Cron Aggregator: Failed to connect to PostgreSQL after multiple retries');
     process.exit(1);
   }
   
-  // Check Redis connection
+  console.log('✅ Cron Aggregator: Connected to PostgreSQL database');
+  
+  // Test Redis connection
+  console.log('🔍 Cron Aggregator: Testing Redis connection...');
   retries = 0;
   let redisConnected = false;
   
@@ -293,13 +298,17 @@ async function startAggregator() {
   }
   
   if (!redisConnected) {
-    console.error('❌ Failed to connect to Redis after multiple retries');
+    console.error('❌ Cron Aggregator: Failed to connect to Redis after multiple retries');
     console.error('   Please check:');
     console.error('   1. Docker container is running: docker-compose ps');
     console.error('   2. REDIS_URL is correct in .env file');
     console.error('   3. Redis is healthy: docker-compose logs redis');
     process.exit(1);
   }
+  
+  const redisUrl = REDIS_URL || 'not configured';
+  const isUpstash = redisUrl.includes('upstash.io') || !!process.env.UPSTASH_REDIS_REST_TOKEN;
+  console.log(`✅ Cron Aggregator: Connected to Redis (${isUpstash ? 'Upstash' : 'Local/Other'})`);
   
   console.log('✅ Cron Aggregator ready');
   console.log(`🔄 Starting aggregation cycle (every ${AGGREGATION_INTERVAL_MINUTES} minutes)...\n`);

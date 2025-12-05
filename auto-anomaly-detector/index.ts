@@ -283,6 +283,8 @@ async function startAnomalyDetector() {
     process.exit(1);
   }
 
+  // Test database connection
+  console.log('🔍 Auto-Anomaly Detector: Testing database connection...');
   const maxRetries = 5;
   let retries = 0;
   let dbConnected = false;
@@ -299,11 +301,14 @@ async function startAnomalyDetector() {
   }
 
   if (!dbConnected) {
-    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    console.error('❌ Auto-Anomaly Detector: Failed to connect to PostgreSQL after multiple retries');
     process.exit(1);
   }
+  
+  console.log('✅ Auto-Anomaly Detector: Connected to PostgreSQL database');
 
-  // Check Redis connection
+  // Test Redis connection
+  console.log('🔍 Auto-Anomaly Detector: Testing Redis connection...');
   retries = 0;
   let redisConnected = false;
 
@@ -319,7 +324,7 @@ async function startAnomalyDetector() {
       }
     }
   } catch (error: any) {
-    console.error('❌ Error during Redis connection test:', error.message);
+    console.error('❌ Auto-Anomaly Detector: Error during Redis connection test:', error.message);
     if (error.stack) {
       console.error('   Stack:', error.stack);
     }
@@ -327,13 +332,17 @@ async function startAnomalyDetector() {
   }
 
   if (!redisConnected) {
-    console.error('❌ Failed to connect to Redis after multiple retries');
+    console.error('❌ Auto-Anomaly Detector: Failed to connect to Redis after multiple retries');
     console.error('   Please check:');
     console.error('   1. Redis is running and accessible');
     console.error('   2. REDIS_URL or UPSTASH_REDIS_REST_URL is correct in .env file');
     console.error('   3. For Upstash Redis, ensure UPSTASH_REDIS_REST_TOKEN is set');
     process.exit(1);
   }
+  
+  const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || 'not configured';
+  const isUpstash = redisUrl.includes('upstash.io') || !!process.env.UPSTASH_REDIS_REST_TOKEN;
+  console.log(`✅ Auto-Anomaly Detector: Connected to Redis (${isUpstash ? 'Upstash' : 'Local/Other'})`);
 
   console.log('✅ Auto-Anomaly Detector ready');
   console.log(`🔄 Starting detection cycle (every ${DETECTION_INTERVAL_MINUTES} minute(s))...\n`);
