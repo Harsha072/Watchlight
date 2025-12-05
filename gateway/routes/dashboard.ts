@@ -7,7 +7,7 @@ import {
   getDashboardStats,
 } from '../services/database';
 import { getCloudWatchLogs, getLogStreams } from '../services/cloudwatch-reader';
-import { getAggregatedSummaries, transformSummariesForDashboard } from '../services/redis';
+import { getAggregatedSummaries, transformSummariesForDashboard, getAIAnalysisFromRedis } from '../services/redis';
 
 const router = Router();
 
@@ -218,24 +218,125 @@ router.get('/api/traces', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/ai-analysis - Get AI analysis results
-router.get('/api/ai-analysis', async (req: Request, res: Response) => {
+// GET /api/anomaly-timeline - Get anomaly detection timeline (all anomalies chronologically) - DATABASE ONLY
+router.get('/api/anomaly-timeline', async (req: Request, res: Response) => {
   try {
     const { limit, startTime, endTime } = req.query;
+    const limitNum = limit ? parseInt(limit as string) : 50;
     
+    console.log(`📅 [GET /api/anomaly-timeline] Request received - limit: ${limitNum}`);
+    console.log(`   🗄️  Fetching anomaly timeline from DATABASE (no Redis, permanent storage only)...`);
+    
+    // Fetch all AI analyses (which represent detected anomalies) from database ONLY
+    // Timeline uses database for historical accuracy
     const analysis = await getAIAnalysis({
-      limit: limit ? parseInt(limit as string) : undefined,
+      limit: limitNum,
       startTime: startTime as string,
       endTime: endTime as string,
     });
+
+    // Map and sort by timestamp (oldest first for timeline display)
+    const timeline = analysis
+      .map(a => {
+        // Handle different possible column names from different services
+        const timestamp = a.timestamp || a.created_at;
+        const severity = a.severity || 'medium';
+        const metric = a.metric || 'unknown';
+        const message = a.message || 'Anomaly detected';
+        const provider = a.provider || 'unknown';
+        const analysisText = a.analysis || '';
+        
+        return {
+          id: a.id,
+          timestamp,
+          severity,
+          metric,
+          message,
+          provider,
+          analysis: analysisText,
+        };
+      })
+      .filter(a => a.timestamp) // Filter out any entries without timestamp
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // Oldest first for timeline
+
+    console.log(`   ✅ [DATABASE] Returning ${timeline.length} anomalies for timeline`);
+
+    res.status(200).json({
+      success: true,
+      count: timeline.length,
+      timeline,
+      source: 'database',
+    });
+  } catch (error: any) {
+    console.error('❌ Error fetching anomaly timeline:', error);
+    res.status(500).json({
+      error: 'Failed to fetch anomaly timeline',
+      message: error.message,
+    });
+  }
+});
+
+// GET /api/ai-analysis - Get AI analysis results (Redis first, then database fallback)
+router.get('/api/ai-analysis', async (req: Request, res: Response) => {
+  try {
+    const { limit, startTime, endTime, useRedis } = req.query;
+    const limitNum = limit ? parseInt(limit as string) : 10;
+    
+    // Log request details
+    console.log(`🤖 [GET /api/ai-analysis] Request received - useRedis: ${useRedis !== 'false' ? 'true' : 'false'}, limit: ${limitNum}`);
+    
+    // Try Redis first (if useRedis is not explicitly false)
+    if (useRedis !== 'false') {
+      console.log(`   🔴 Fetching AI analysis from REDIS...`);
+      try {
+        const redisAnalysis = await getAIAnalysisFromRedis(limitNum);
+        
+        if (redisAnalysis && redisAnalysis.length > 0) {
+          console.log(`   ✅ [REDIS] Returning ${redisAnalysis.length} AI analyses`);
+          
+          // Apply time filters if provided
+          let filtered = redisAnalysis;
+          if (startTime) {
+            const start = new Date(startTime as string);
+            filtered = filtered.filter(a => new Date(a.timestamp) >= start);
+          }
+          if (endTime) {
+            const end = new Date(endTime as string);
+            filtered = filtered.filter(a => new Date(a.timestamp) <= end);
+          }
+          
+          return res.status(200).json({
+            success: true,
+            count: filtered.length,
+            analysis: filtered,
+            source: 'redis',
+          });
+        } else {
+          console.log(`   ⚠️  [REDIS] No AI analysis found, falling back to database...`);
+        }
+      } catch (redisError: any) {
+        console.warn(`   ⚠️  [REDIS] Error fetching from Redis, falling back to database: ${redisError.message}`);
+      }
+    }
+    
+    // Fallback to database
+    console.log(`   🗄️  Fetching AI analysis from DATABASE...`);
+    const analysis = await getAIAnalysis({
+      limit: limitNum,
+      startTime: startTime as string,
+      endTime: endTime as string,
+    });
+
+    console.log(`   ✅ [DATABASE] Returning ${analysis.length} AI analyses`);
 
     res.status(200).json({
       success: true,
       count: analysis.length,
       analysis,
+      source: 'database',
     });
   } catch (error: any) {
-    console.error('Error fetching AI analysis:', error);
+    console.error('❌ Error fetching AI analysis:', error);
     res.status(500).json({
       error: 'Failed to fetch AI analysis',
       message: error.message,

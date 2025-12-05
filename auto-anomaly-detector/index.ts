@@ -1,9 +1,10 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import { testConnection as testDbConnection, getRecentLogs, getRecentTraces, closeDatabase } from './services/database';
+import { testConnection as testDbConnection, getRecentLogs, getRecentTraces, saveAIAnalysis, closeDatabase } from './services/database';
 import { 
   testConnection as testRedisConnection, 
   getRecentSummaries, 
+  storeAIAnalysis,
   closeRedis,
 } from './services/redis';
 import { detectAnomalies } from './services/anomaly-detector';
@@ -20,7 +21,8 @@ const DETECTION_INTERVAL_MINUTES = parseInt(process.env.DETECTION_INTERVAL_MINUT
 const HISTORICAL_WINDOWS = parseInt(process.env.HISTORICAL_WINDOWS || '5', 10);
 const DATA_LOOKBACK_MINUTES = parseInt(process.env.DATA_LOOKBACK_MINUTES || '15', 10);
 // Cooldown period in minutes - don't analyze the same anomaly within this time window
-const ANOMALY_COOLDOWN_MINUTES = parseInt(process.env.ANOMALY_COOLDOWN_MINUTES || '30', 10);
+// Changed to 1 minute for testing (change back to '30' for production)
+const ANOMALY_COOLDOWN_MINUTES = parseInt(process.env.ANOMALY_COOLDOWN_MINUTES || '1', 10);
 
 // Simple in-memory cache to track recently analyzed anomalies
 // Key: anomaly identifier (e.g., "error_rate:high"), Value: timestamp when analyzed
@@ -159,11 +161,70 @@ async function runAnomalyDetection(): Promise<void> {
 
     console.log(`   ✅ AI analysis complete (${aiAnalysis.provider})`);
 
-    // Step 6: Mark this anomaly as analyzed (store in memory with timestamp)
+    // Step 6: Save AI analysis to both Redis and Database (hybrid approach)
+    const timestamp = new Date().toISOString();
+    const analysisData = {
+      provider: aiAnalysis.provider,
+      analysis: aiAnalysis.analysis,
+      severity: anomaly.severity,
+      metric: anomaly.metric,
+      message: anomaly.message,
+      timestamp,
+    };
+
+    // Save to Redis (fast cache, 2-hour expiration)
+    console.log(`\n💾 Saving AI analysis to Redis...`);
+    await storeAIAnalysis(analysisData);
+
+    // Save to Database (permanent storage)
+    console.log(`\n💾 Saving AI analysis to Database...`);
+    console.log(`   Provider: ${aiAnalysis.provider}`);
+    console.log(`   Metric: ${anomaly.metric}`);
+    console.log(`   Severity: ${anomaly.severity}`);
+    console.log(`   Timestamp: ${timestamp}`);
+    
+    let dbSaveSuccess = false;
+    let savedId: number | null = null;
+    
+    try {
+      await saveAIAnalysis(
+        aiAnalysis.provider,
+        aiAnalysis.analysis,
+        anomaly.severity,
+        anomaly.metric,
+        anomaly.message,
+        timestamp
+      );
+      dbSaveSuccess = true;
+      console.log(`✅ AI analysis successfully saved to both Redis and Database`);
+    } catch (dbError: any) {
+      console.error('\n❌ ============================================');
+      console.error('❌ CRITICAL: Failed to save AI analysis to database!');
+      console.error('❌ ============================================');
+      console.error(`   Error Message: ${dbError.message}`);
+      console.error(`   This is critical - timeline will not show this anomaly!`);
+      if (dbError.code) {
+        console.error(`   PostgreSQL Error Code: ${dbError.code}`);
+      }
+      if (dbError.detail) {
+        console.error(`   Detail: ${dbError.detail}`);
+      }
+      if (dbError.hint) {
+        console.error(`   Hint: ${dbError.hint}`);
+      }
+      if (dbError.stack) {
+        console.error(`   Stack Trace:\n${dbError.stack}`);
+      }
+      console.error('❌ ============================================\n');
+      // Continue anyway - Redis save succeeded, but database save failed
+      // This means the analysis is cached but not permanently stored
+    }
+
+    // Step 7: Mark this anomaly as analyzed (store in memory with timestamp)
     markAsAnalyzed(anomalyKey);
     console.log(`   🔒 Cooldown set: This anomaly won't be analyzed again for ${ANOMALY_COOLDOWN_MINUTES} minutes`);
 
-    // Step 7: Send notification to SQS
+    // Step 8: Send notification to SQS
     console.log(`\n📤 Sending notification to Notify Service...`);
     await sendNotification({
       type: 'anomaly_detected',

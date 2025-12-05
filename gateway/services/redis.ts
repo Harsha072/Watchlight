@@ -251,3 +251,81 @@ export function transformSummariesForDashboard(summaries: AggregatedSummary[]) {
   return combined;
 }
 
+/**
+ * Store AI analysis in Redis (with 2-hour expiration)
+ */
+export async function storeAIAnalysis(analysis: {
+  id?: number;
+  provider: string;
+  analysis: string;
+  timestamp: string;
+  severity?: string;
+  metric?: string;
+  message?: string;
+}): Promise<void> {
+  try {
+    await ensureConnected();
+
+    // Use the timestamp from the analysis object
+    const timestamp = analysis.timestamp || new Date().toISOString();
+    const key = `ai:analysis:${timestamp}`;
+    
+    // Store the analysis with 2-hour expiration
+    await redisClient.setEx(
+      key,
+      7200, // 2 hours
+      JSON.stringify(analysis)
+    );
+
+    // Also store as latest (overwrites previous)
+    await redisClient.setEx(
+      'ai:analysis:latest',
+      7200, // 2 hours
+      JSON.stringify(analysis)
+    );
+
+    console.log('✅ AI analysis stored in Redis');
+  } catch (error: any) {
+    console.error('❌ Failed to store AI analysis in Redis:', error.message);
+    // Don't throw - Redis failure shouldn't break the flow
+  }
+}
+
+/**
+ * Get AI analysis from Redis (recent analyses within time window)
+ */
+export async function getAIAnalysisFromRedis(limit: number = 10): Promise<any[]> {
+  try {
+    await ensureConnected();
+
+    // Get all AI analysis keys
+    const keys = await redisClient.keys('ai:analysis:*');
+    
+    // Filter out 'latest' key and get timestamped keys
+    const analysisKeys = keys
+      .filter(key => key !== 'ai:analysis:latest' && key.startsWith('ai:analysis:'))
+      .sort()
+      .reverse() // Most recent first
+      .slice(0, limit);
+
+    const analyses: any[] = [];
+
+    for (const key of analysisKeys) {
+      try {
+        const data = await redisClient.get(key);
+        if (data) {
+          const analysis = JSON.parse(data);
+          analyses.push(analysis);
+        }
+      } catch (parseError) {
+        console.warn(`⚠️ Failed to parse Redis key ${key}:`, parseError);
+      }
+    }
+
+    return analyses;
+  } catch (error: any) {
+    console.error('❌ Failed to get AI analysis from Redis:', error.message);
+    return [];
+  }
+}
+
