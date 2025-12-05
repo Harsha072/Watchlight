@@ -263,26 +263,36 @@ export async function getAIAnalysis(options: {
 export async function getDashboardStats(): Promise<any> {
   let client: PoolClient | null = null;
   try {
+    console.log('📊 [getDashboardStats] Connecting to database...');
     client = await pool.connect();
+    console.log('📊 [getDashboardStats] Database connection established');
     
     // Get total logs count
+    console.log('📊 [getDashboardStats] Fetching logs count...');
     const logsResult = await client.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE level = \'error\') as errors FROM logs');
     const logsStats = logsResult.rows[0];
+    console.log(`📊 [getDashboardStats] Logs: ${logsStats.total} total, ${logsStats.errors} errors`);
 
     // Get total metrics count
+    console.log('📊 [getDashboardStats] Fetching metrics count...');
     const metricsResult = await client.query('SELECT COUNT(*) as total, COUNT(DISTINCT service) as services FROM metrics');
     const metricsStats = metricsResult.rows[0];
+    console.log(`📊 [getDashboardStats] Metrics: ${metricsStats.total} total, ${metricsStats.services} services`);
 
     // Get total traces count
+    console.log('📊 [getDashboardStats] Fetching traces count...');
     const tracesResult = await client.query('SELECT COUNT(*) as total, COUNT(DISTINCT service) as services FROM traces');
     const tracesStats = tracesResult.rows[0];
+    console.log(`📊 [getDashboardStats] Traces: ${tracesStats.total} total, ${tracesStats.services} services`);
 
     // Get latest AI analysis
+    console.log('📊 [getDashboardStats] Fetching AI analysis...');
     const aiResult = await client.query('SELECT * FROM ai_analysis ORDER BY timestamp DESC LIMIT 1');
     const latestAI = aiResult.rows[0] || null;
 
     // Get recent error rate (last hour)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    console.log('📊 [getDashboardStats] Fetching error rate (last hour)...');
     const errorRateResult = await client.query(`
       SELECT 
         COUNT(*) FILTER (WHERE level = 'error') as errors,
@@ -291,8 +301,9 @@ export async function getDashboardStats(): Promise<any> {
       WHERE timestamp >= $1
     `, [oneHourAgo]);
     const errorRate = errorRateResult.rows[0];
+    console.log(`📊 [getDashboardStats] Error rate: ${errorRate.errors} errors out of ${errorRate.total} total logs`);
 
-    return {
+    const stats = {
       logs: {
         total: parseInt(logsStats.total) || 0,
         errors: parseInt(logsStats.errors) || 0,
@@ -315,8 +326,12 @@ export async function getDashboardStats(): Promise<any> {
         percentage: errorRate.total > 0 ? ((parseInt(errorRate.errors) / parseInt(errorRate.total)) * 100).toFixed(2) : '0.00',
       },
     };
+
+    console.log('📊 [getDashboardStats] Stats prepared:', JSON.stringify(stats, null, 2));
+    return stats;
   } catch (error: any) {
     console.error('❌ Error fetching dashboard stats:', error.message);
+    console.error('❌ Stack trace:', error.stack);
     throw error;
   } finally {
     if (client) {

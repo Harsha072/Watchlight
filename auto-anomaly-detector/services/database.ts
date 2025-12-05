@@ -110,6 +110,87 @@ export async function getRecentTraces(minutes: number = 15): Promise<any[]> {
   }
 }
 
+// Save AI analysis to database
+export async function saveAIAnalysis(
+  provider: string,
+  analysis: string,
+  severity: string,
+  metric: string,
+  message: string,
+  timestamp: string
+): Promise<void> {
+  let client: PoolClient | null = null;
+  try {
+    client = await pool.connect();
+    
+    console.log(`💾 [saveAIAnalysis] Attempting to save AI analysis to database...`);
+    console.log(`   Provider: ${provider}, Metric: ${metric}, Severity: ${severity}`);
+    
+    // Ensure ai_analysis table exists
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_analysis (
+        id SERIAL PRIMARY KEY,
+        provider VARCHAR(50) NOT NULL,
+        analysis TEXT NOT NULL,
+        severity VARCHAR(20),
+        metric VARCHAR(50),
+        message TEXT,
+        timestamp TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create index on timestamp if it doesn't exist
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_ai_analysis_timestamp ON ai_analysis(timestamp)
+    `);
+    
+    console.log(`   📝 Executing INSERT query...`);
+    const result = await client.query(
+      `INSERT INTO ai_analysis (provider, analysis, severity, metric, message, timestamp) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [provider, analysis, severity, metric, message, timestamp]
+    );
+    
+    const savedId = result.rows[0]?.id;
+    if (!savedId) {
+      throw new Error('INSERT query did not return an ID - save may have failed');
+    }
+    
+    console.log(`✅ AI analysis saved to database successfully!`);
+    console.log(`   - ID: ${savedId}`);
+    console.log(`   - Provider: ${provider}`);
+    console.log(`   - Metric: ${metric}`);
+    console.log(`   - Timestamp: ${timestamp}`);
+    
+    // Verify the save by querying it back
+    try {
+      const verifyResult = await client.query(
+        'SELECT id, timestamp, provider, metric FROM ai_analysis WHERE id = $1',
+        [savedId]
+      );
+      if (verifyResult.rows.length === 0) {
+        console.warn(`   ⚠️  WARNING: Could not verify saved record (ID: ${savedId})`);
+      } else {
+        console.log(`   ✅ Verified: Record exists in database`);
+      }
+    } catch (verifyError: any) {
+      console.warn(`   ⚠️  Could not verify save: ${verifyError.message}`);
+    }
+  } catch (error: any) {
+    console.error('❌ Failed to save AI analysis to database:', error.message);
+    console.error('   Error details:', error);
+    if (error.stack) {
+      console.error('   Stack:', error.stack);
+    }
+    throw error;
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+}
+
 // Close database connection pool
 export async function closeDatabase(): Promise<void> {
   await pool.end();

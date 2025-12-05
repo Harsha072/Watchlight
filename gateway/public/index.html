@@ -4,12 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Watchlight - Observability Platform</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/source-foundry/Hack@master/build/web/hack.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600;700&display=swap');
+    
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      font-family: 'Hack', 'Source Code Pro', 'Courier New', monospace;
     }
 
     :root {
@@ -28,7 +32,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Hack', 'Source Code Pro', 'Courier New', monospace;
       background: var(--bg-dark);
       color: var(--text-primary);
       line-height: 1.6;
@@ -53,11 +57,13 @@
       font-size: 2.5rem;
       margin-bottom: 10px;
       font-weight: 700;
+      text-align: center;
     }
 
     header p {
       color: rgba(255, 255, 255, 0.9);
       font-size: 1.1rem;
+      text-align: center;
     }
 
     .stats-grid {
@@ -189,6 +195,137 @@
       transform: translateY(-2px);
     }
 
+    .scenario-progress {
+      margin-top: 15px;
+      padding: 20px;
+      background: var(--bg-hover);
+      border-radius: 8px;
+      display: none;
+    }
+
+    .scenario-progress-header {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: var(--text-primary);
+    }
+
+    .progress-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .stat-card {
+      background: var(--bg-primary);
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-value.error {
+      color: var(--error);
+    }
+
+    .stat-value.warn {
+      color: var(--warning);
+    }
+
+    .stat-value.info {
+      color: var(--info);
+    }
+
+    .stat-value.success {
+      color: var(--success);
+    }
+
+    .log-breakdown {
+      margin-top: 15px;
+      padding: 15px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .log-breakdown-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text-primary);
+    }
+
+    .log-levels {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .log-level-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .log-level-badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .log-level-badge.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .log-level-badge.warn {
+      background: rgba(251, 191, 36, 0.2);
+      color: var(--warning);
+    }
+
+    .log-level-badge.info {
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--info);
+    }
+
+    .log-level-badge.debug {
+      background: rgba(156, 163, 175, 0.2);
+      color: var(--text-secondary);
+    }
+
+    .progress-status {
+      margin-top: 15px;
+      padding: 10px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .progress-status.active {
+      color: var(--warning);
+    }
+
+    .progress-status.complete {
+      color: var(--success);
+    }
+
     .data-table {
       width: 100%;
       border-collapse: collapse;
@@ -270,6 +407,109 @@
       white-space: pre-wrap;
     }
 
+    .anomaly-timeline {
+      position: relative;
+      padding: 20px 0;
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-left: 40px;
+      margin-bottom: 30px;
+      border-left: 2px solid var(--border);
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -6px;
+      top: 0;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid var(--bg-dark);
+    }
+
+    .timeline-item.critical::before {
+      background: var(--error);
+    }
+
+    .timeline-item.high::before {
+      background: #f59e0b;
+    }
+
+    .timeline-item.medium::before {
+      background: var(--warning);
+    }
+
+    .timeline-item.low::before {
+      background: var(--success);
+    }
+
+    .timeline-item-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+
+    .timeline-item-time {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 600;
+      min-width: 180px;
+    }
+
+    .timeline-item-metric {
+      background: var(--bg-hover);
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--primary);
+    }
+
+    .timeline-item-severity {
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .timeline-item-severity.critical {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .timeline-item-severity.high {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+    }
+
+    .timeline-item-severity.medium {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .timeline-item-severity.low {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .timeline-item-message {
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .timeline-item-provider {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+
     .cloudwatch-log-entry {
       transition: all 0.2s;
     }
@@ -336,7 +576,7 @@
       padding: 20px;
       border-radius: 8px;
       margin-bottom: 15px;
-      font-family: 'Courier New', monospace;
+      font-family: 'Hack', 'Source Code Pro', 'Courier New', monospace;
     }
 
     .api-docs .method {
@@ -409,6 +649,204 @@
       opacity: 0.5;
     }
 
+    /* Toast Notification Styles (AWS CloudWatch inspired) */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 400px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: slideInRight 0.3s ease-out;
+      pointer-events: auto;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .toast::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--primary);
+    }
+
+    .toast.critical::before {
+      background: var(--error);
+    }
+
+    .toast.high::before {
+      background: #f97316;
+    }
+
+    .toast.medium::before {
+      background: var(--warning);
+    }
+
+    .toast.low::before {
+      background: var(--success);
+    }
+
+    .toast-icon {
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toast.critical .toast-icon {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .toast.high .toast-icon {
+      background: rgba(249, 115, 22, 0.2);
+      color: #f97316;
+    }
+
+    .toast.medium .toast-icon {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .toast.low .toast-icon {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .toast-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .toast-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+    }
+
+    .toast-severity {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toast.critical .toast-severity {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .toast.high .toast-severity {
+      background: rgba(249, 115, 22, 0.2);
+      color: #f97316;
+    }
+
+    .toast.medium .toast-severity {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .toast.low .toast-severity {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .toast-message {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+
+    .toast-metric {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      opacity: 0.8;
+    }
+
+    .toast-time {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      opacity: 0.6;
+      margin-top: 4px;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+
+    .toast-close:hover {
+      opacity: 1;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    .toast.removing {
+      animation: slideOutRight 0.3s ease-out forwards;
+    }
+
     @media (max-width: 768px) {
       .stats-grid {
         grid-template-columns: 1fr;
@@ -421,13 +859,22 @@
       .tabs {
         overflow-x: auto;
       }
+
+      .toast-container {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+      }
     }
   </style>
 </head>
 <body>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
   <div class="container">
     <header>
-      <h1>🔍 Watchlight</h1>
+      <h1>WATCHLIGHT</h1>
       <p>Backend Observability Platform - Real-time Monitoring & AI-Powered Analysis</p>
     </header>
 
@@ -457,42 +904,98 @@
 
     <!-- Scenario Testing Section -->
     <div class="section">
-      <h2>🧪 Scenario Testing</h2>
+      <h2>Scenario Testing</h2>
       <p style="color: var(--text-secondary); margin-bottom: 20px;">
         Test different scenarios to see how the system handles various conditions. 
         Click a scenario to send test data to the observability platform.
       </p>
       <div class="scenario-buttons">
         <button class="scenario-btn" onclick="sendScenario('normal')">
-          ✅ Normal Operation
+          Normal Operation
         </button>
         <button class="scenario-btn" onclick="sendScenario('high-traffic')">
-          📈 High Traffic
+          High Traffic
         </button>
         <button class="scenario-btn" onclick="sendScenario('errors')">
-          ❌ Error Spike
+          Error Spike
         </button>
         <button class="scenario-btn" onclick="sendScenario('slow-response')">
-          🐌 Slow Response
+          Slow Response
         </button>
         <button class="scenario-btn" onclick="sendScenario('anomaly')">
-          🚨 Anomaly Detection
+          Anomaly Detection
         </button>
       </div>
-      <div id="scenarioStatus" style="margin-top: 15px; padding: 15px; background: var(--bg-hover); border-radius: 8px; display: none;">
-        <strong style="color: var(--success);" id="scenarioMessage"></strong>
+      <div id="scenarioStatus" class="scenario-progress">
+        <div class="scenario-progress-header" id="scenarioHeader">Sending Test Data to Observability Platform</div>
+        
+        <div class="progress-stats">
+          <div class="stat-card">
+            <div class="stat-label">Total Logs</div>
+            <div class="stat-value" id="statLogs">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Errors</div>
+            <div class="stat-value error" id="statErrors">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Warnings</div>
+            <div class="stat-value warn" id="statWarnings">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Info Logs</div>
+            <div class="stat-value info" id="statInfo">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Debug Logs</div>
+            <div class="stat-value" id="statDebug">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Metrics</div>
+            <div class="stat-value success" id="statMetrics">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Traces</div>
+            <div class="stat-value success" id="statTraces">0</div>
+          </div>
+        </div>
+
+        <div class="log-breakdown">
+          <div class="log-breakdown-title">Log Level Breakdown</div>
+          <div class="log-levels">
+            <div class="log-level-item">
+              <span class="log-level-badge error">Error</span>
+              <span id="breakdownError">0</span>
+            </div>
+            <div class="log-level-item">
+              <span class="log-level-badge warn">Warn</span>
+              <span id="breakdownWarn">0</span>
+            </div>
+            <div class="log-level-item">
+              <span class="log-level-badge info">Info</span>
+              <span id="breakdownInfo">0</span>
+            </div>
+            <div class="log-level-item">
+              <span class="log-level-badge debug">Debug</span>
+              <span id="breakdownDebug">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-status" id="progressStatus">Initializing...</div>
       </div>
     </div>
 
     <!-- Main Content Tabs -->
     <div class="section">
       <div class="tabs">
-        <button class="tab active" onclick="switchTab('logs', this)">📋 Logs</button>
-        <button class="tab" onclick="switchTab('metrics', this)">📊 Metrics</button>
-        <button class="tab" onclick="switchTab('traces', this)">🔍 Traces</button>
-        <button class="tab" onclick="switchTab('ai-analysis', this)">🤖 AI Analysis</button>
-        <button class="tab" onclick="switchTab('cloudwatch', this)">☁️ CloudWatch</button>
-        <button class="tab" onclick="switchTab('api-docs', this)">📚 API Docs</button>
+        <button class="tab active" onclick="switchTab('logs', this)">Logs</button>
+        <button class="tab" onclick="switchTab('metrics', this)">Metrics</button>
+        <button class="tab" onclick="switchTab('traces', this)">Traces</button>
+        <button class="tab" onclick="switchTab('ai-analysis', this)">AI Analysis</button>
+        <button class="tab" onclick="switchTab('anomaly-timeline', this)">Anomaly Timeline</button>
+        <button class="tab" onclick="switchTab('cloudwatch', this)">CloudWatch</button>
+        <button class="tab" onclick="switchTab('api-docs', this)">API Docs</button>
       </div>
 
       <!-- Logs Tab -->
@@ -517,19 +1020,19 @@
         <!-- Charts Section -->
         <div id="logsCharts" class="charts-grid" style="display: none;">
           <div class="chart-container">
-            <h3>📊 Log Level Distribution</h3>
+            <h3>Log Level Distribution</h3>
             <div class="chart-wrapper">
               <canvas id="logLevelPieChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>📈 Error Rate Over Time</h3>
+            <h3>Error Rate Over Time</h3>
             <div class="chart-wrapper">
               <canvas id="errorRateLineChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>📊 Logs by Service</h3>
+            <h3>Logs by Service</h3>
             <div class="chart-wrapper">
               <canvas id="logsByServiceChart"></canvas>
             </div>
@@ -555,25 +1058,25 @@
         <!-- Charts Section -->
         <div id="metricsCharts" class="charts-grid" style="display: none;">
           <div class="chart-container">
-            <h3>📈 Response Time Trend</h3>
+            <h3>Response Time Trend</h3>
             <div class="chart-wrapper">
               <canvas id="responseTimeLineChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>📊 Requests vs Errors</h3>
+            <h3>Requests vs Errors</h3>
             <div class="chart-wrapper">
               <canvas id="requestsErrorsBarChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>💻 Resource Usage (CPU/Memory)</h3>
+            <h3>Resource Usage (CPU/Memory)</h3>
             <div class="chart-wrapper">
               <canvas id="resourceUsageAreaChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>🔄 Service Comparison</h3>
+            <h3>Service Comparison</h3>
             <div class="chart-wrapper">
               <canvas id="serviceComparisonChart"></canvas>
             </div>
@@ -600,19 +1103,19 @@
         <!-- Charts Section -->
         <div id="tracesCharts" class="charts-grid" style="display: none;">
           <div class="chart-container">
-            <h3>📈 Trace Duration Trend</h3>
+            <h3>Trace Duration Trend</h3>
             <div class="chart-wrapper">
               <canvas id="traceDurationLineChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>📊 Status Code Distribution</h3>
+            <h3>Status Code Distribution</h3>
             <div class="chart-wrapper">
               <canvas id="statusCodePieChart"></canvas>
             </div>
           </div>
           <div class="chart-container">
-            <h3>📊 Average Duration by Service</h3>
+            <h3>Average Duration by Service</h3>
             <div class="chart-wrapper">
               <canvas id="durationByServiceChart"></canvas>
             </div>
@@ -631,6 +1134,17 @@
         </div>
         <div id="aiAnalysisContent">
           <div class="loading">Loading AI analysis</div>
+        </div>
+      </div>
+
+      <!-- Anomaly Timeline Tab -->
+      <div id="anomaly-timeline-tab" class="tab-content">
+        <div class="filter-bar">
+          <input type="number" class="filter-input" id="timelineLimit" placeholder="Limit" value="50" style="width: 100px;">
+          <button class="btn" onclick="loadAnomalyTimeline()">Refresh</button>
+        </div>
+        <div id="anomalyTimelineContent">
+          <div class="loading">Loading anomaly timeline</div>
         </div>
       </div>
 
@@ -741,13 +1255,21 @@ curl -X POST http://localhost:3000/api/metrics \<br>
     async function loadDashboardStats() {
       // Prevent multiple simultaneous calls
       if (isLoadingDashboardStats) {
+        console.log('[loadDashboardStats] Already loading, skipping...');
         return;
       }
       
       isLoadingDashboardStats = true;
       try {
+        console.log('[loadDashboardStats] Fetching dashboard stats from database...');
         const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('[loadDashboardStats] Stats received:', data);
         
         document.getElementById('totalLogs').textContent = data.logs?.total || 0;
         document.getElementById('errorLogs').textContent = data.logs?.errors || 0;
@@ -756,8 +1278,18 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         document.getElementById('totalTraces').textContent = data.traces?.total || 0;
         document.getElementById('traceServices').textContent = data.traces?.services || 0;
         document.getElementById('errorRate').textContent = data.errorRate?.percentage ? `${data.errorRate.percentage}%` : '0%';
+        
+        console.log('[loadDashboardStats] Dashboard stats updated successfully');
       } catch (error) {
-        console.error('Error loading dashboard stats:', error);
+        console.error('[loadDashboardStats] Error loading dashboard stats:', error);
+        // Set default values on error
+        document.getElementById('totalLogs').textContent = '-';
+        document.getElementById('errorLogs').textContent = '-';
+        document.getElementById('totalMetrics').textContent = '-';
+        document.getElementById('metricServices').textContent = '-';
+        document.getElementById('totalTraces').textContent = '-';
+        document.getElementById('traceServices').textContent = '-';
+        document.getElementById('errorRate').textContent = '-';
       } finally {
         isLoadingDashboardStats = false;
       }
@@ -1516,7 +2048,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
           let html = '';
           data.analysis.forEach(analysis => {
             html += `<div class="ai-analysis-card">
-              <h4>🤖 AI Analysis (${analysis.provider})</h4>
+              <h4>AI Analysis (${analysis.provider})</h4>
               <div class="timestamp">${new Date(analysis.timestamp).toLocaleString()}</div>
               <div class="analysis-text">${analysis.analysis || 'No analysis available'}</div>
             </div>`;
@@ -1527,6 +2059,55 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         }
       } catch (error) {
         content.innerHTML = `<div class="empty-state"><p>Error loading AI analysis: ${error.message}</p></div>`;
+      }
+    }
+
+    // Load Anomaly Timeline
+    async function loadAnomalyTimeline() {
+      console.log('[loadAnomalyTimeline] Starting to load anomaly timeline...');
+      const content = document.getElementById('anomalyTimelineContent');
+      content.innerHTML = '<div class="loading">Loading anomaly timeline</div>';
+      
+      try {
+        const limit = document.getElementById('timelineLimit').value || 50;
+        const response = await fetch(`${API_BASE_URL}/api/anomaly-timeline?limit=${limit}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('[loadAnomalyTimeline] Timeline received:', data);
+        
+        if (data.timeline && data.timeline.length > 0) {
+          let html = '<div class="anomaly-timeline">';
+          
+          data.timeline.forEach((anomaly, index) => {
+            const date = new Date(anomaly.timestamp);
+            const timeStr = date.toLocaleString();
+            const severity = (anomaly.severity || 'medium').toLowerCase();
+            
+            html += `
+              <div class="timeline-item ${severity}">
+                <div class="timeline-item-header">
+                  <div class="timeline-item-time">${timeStr}</div>
+                  <div class="timeline-item-metric">${anomaly.metric || 'Unknown'}</div>
+                  <div class="timeline-item-severity ${severity}">${severity.toUpperCase()}</div>
+                </div>
+                <div class="timeline-item-message">${anomaly.message || 'Anomaly detected'}</div>
+                <div class="timeline-item-provider">AI Provider: ${anomaly.provider || 'unknown'}</div>
+              </div>
+            `;
+          });
+          
+          html += '</div>';
+          content.innerHTML = html;
+        } else {
+          content.innerHTML = '<div class="empty-state"><p>No anomalies detected yet. The timeline will show when anomalies are detected.</p></div>';
+        }
+      } catch (error) {
+        console.error('[loadAnomalyTimeline] Error:', error);
+        content.innerHTML = `<div class="empty-state"><p>Error loading anomaly timeline: ${error.message}</p></div>`;
       }
     }
 
@@ -1560,8 +2141,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
           filteredLogs.forEach((log, index) => {
             const typeBadge = log.type === 'log' ? 'badge-info' : 
                              log.type === 'metric' ? 'badge-success' : 'badge-warning';
-            const typeIcon = log.type === 'log' ? '📋' : 
-                            log.type === 'metric' ? '📊' : '🔍';
+            const typeIcon = '';
             
             // Extract key info from data
             let summary = log.snsMessage || '';
@@ -1785,12 +2365,33 @@ curl -X POST http://localhost:3000/api/metrics \<br>
     }
 
     // Send scenario test data
+    // Helper function to update progress display
+    function updateProgressDisplay(stats) {
+      document.getElementById('statLogs').textContent = stats.logs || 0;
+      document.getElementById('statErrors').textContent = stats.errors || 0;
+      document.getElementById('statWarnings').textContent = stats.warnings || 0;
+      document.getElementById('statInfo').textContent = stats.info || 0;
+      document.getElementById('statDebug').textContent = stats.debug || 0;
+      document.getElementById('statMetrics').textContent = stats.metrics || 0;
+      document.getElementById('statTraces').textContent = stats.traces || 0;
+      
+      document.getElementById('breakdownError').textContent = stats.errors || 0;
+      document.getElementById('breakdownWarn').textContent = stats.warnings || 0;
+      document.getElementById('breakdownInfo').textContent = stats.info || 0;
+      document.getElementById('breakdownDebug').textContent = stats.debug || 0;
+    }
+
     async function sendScenario(scenario) {
       const statusDiv = document.getElementById('scenarioStatus');
-      const messageDiv = document.getElementById('scenarioMessage');
+      const headerDiv = document.getElementById('scenarioHeader');
+      const statusText = document.getElementById('progressStatus');
+      
+      // Reset and show progress display
       statusDiv.style.display = 'block';
-      messageDiv.textContent = `Generating and sending ${scenario} scenario data...`;
-      messageDiv.style.color = 'var(--warning)';
+      updateProgressDisplay({ logs: 0, errors: 0, warnings: 0, info: 0, debug: 0, metrics: 0, traces: 0 });
+      headerDiv.textContent = `Sending ${scenario} Scenario Data to Observability Platform`;
+      statusText.textContent = 'Generating test data...';
+      statusText.className = 'progress-status active';
 
       try {
         const config = SCENARIO_CONFIGS[scenario];
@@ -1799,25 +2400,38 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         }
 
         // Generate dynamic logs
+        statusText.textContent = `Generating ${config.logCount} logs...`;
         const logs = [];
+        const logLevelCounts = { error: 0, warn: 0, info: 0, debug: 0 };
+        
         for (let i = 0; i < config.logCount; i++) {
-          logs.push(generateLog(config));
+          const log = generateLog(config);
+          logs.push(log);
+          logLevelCounts[log.level] = (logLevelCounts[log.level] || 0) + 1;
         }
 
         // Generate dynamic metrics
+        statusText.textContent = `Generating ${config.metricCount} metrics...`;
         const metrics = [];
         for (let i = 0; i < config.metricCount; i++) {
           metrics.push(generateMetrics(config));
         }
 
         // Generate dynamic traces
+        statusText.textContent = `Generating ${config.traceCount} traces...`;
         const traces = [];
         for (let i = 0; i < config.traceCount; i++) {
           traces.push(generateTrace(config));
         }
 
-        // Send logs
+        // Send logs with real-time updates
+        statusText.textContent = `Sending ${logs.length} logs to observability platform...`;
         let logsSent = 0;
+        let errorsSent = 0;
+        let warningsSent = 0;
+        let infoSent = 0;
+        let debugSent = 0;
+        
         for (const log of logs) {
           try {
             await fetch(`${API_BASE_URL}/api/logs`, {
@@ -1826,12 +2440,33 @@ curl -X POST http://localhost:3000/api/metrics \<br>
               body: JSON.stringify(log)
             });
             logsSent++;
+            
+            // Update counts by level
+            if (log.level === 'error') errorsSent++;
+            else if (log.level === 'warn') warningsSent++;
+            else if (log.level === 'info') infoSent++;
+            else if (log.level === 'debug') debugSent++;
+            
+            // Update display every 5 logs or on last log
+            if (logsSent % 5 === 0 || logsSent === logs.length) {
+              updateProgressDisplay({
+                logs: logsSent,
+                errors: errorsSent,
+                warnings: warningsSent,
+                info: infoSent,
+                debug: debugSent,
+                metrics: 0,
+                traces: 0
+              });
+              statusText.textContent = `Sent ${logsSent}/${logs.length} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug)...`;
+            }
           } catch (err) {
             console.error('Failed to send log:', err);
           }
         }
 
-        // Send metrics
+        // Send metrics with real-time updates
+        statusText.textContent = `Sending ${metrics.length} metrics to observability platform...`;
         let metricsSent = 0;
         for (const metric of metrics) {
           try {
@@ -1841,12 +2476,27 @@ curl -X POST http://localhost:3000/api/metrics \<br>
               body: JSON.stringify(metric)
             });
             metricsSent++;
+            
+            // Update display every 5 metrics or on last metric
+            if (metricsSent % 5 === 0 || metricsSent === metrics.length) {
+              updateProgressDisplay({
+                logs: logsSent,
+                errors: errorsSent,
+                warnings: warningsSent,
+                info: infoSent,
+                debug: debugSent,
+                metrics: metricsSent,
+                traces: 0
+              });
+              statusText.textContent = `Sent ${logsSent} logs, ${metricsSent}/${metrics.length} metrics...`;
+            }
           } catch (err) {
             console.error('Failed to send metric:', err);
           }
         }
 
-        // Send traces
+        // Send traces with real-time updates
+        statusText.textContent = `Sending ${traces.length} traces to observability platform...`;
         let tracesSent = 0;
         for (const trace of traces) {
           try {
@@ -1856,13 +2506,39 @@ curl -X POST http://localhost:3000/api/metrics \<br>
               body: JSON.stringify(trace)
             });
             tracesSent++;
+            
+            // Update display every 5 traces or on last trace
+            if (tracesSent % 5 === 0 || tracesSent === traces.length) {
+              updateProgressDisplay({
+                logs: logsSent,
+                errors: errorsSent,
+                warnings: warningsSent,
+                info: infoSent,
+                debug: debugSent,
+                metrics: metricsSent,
+                traces: tracesSent
+              });
+              statusText.textContent = `Sent ${logsSent} logs, ${metricsSent} metrics, ${tracesSent}/${traces.length} traces...`;
+            }
           } catch (err) {
             console.error('Failed to send trace:', err);
           }
         }
 
-        messageDiv.textContent = `✅ ${scenario} scenario sent! ${logsSent} logs, ${metricsSent} metrics, ${tracesSent} traces. Data will appear in charts shortly.`;
-        messageDiv.style.color = 'var(--success)';
+        // Final update
+        updateProgressDisplay({
+          logs: logsSent,
+          errors: errorsSent,
+          warnings: warningsSent,
+          info: infoSent,
+          debug: debugSent,
+          metrics: metricsSent,
+          traces: tracesSent
+        });
+        
+        statusText.textContent = `Complete! Sent ${logsSent} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug), ${metricsSent} metrics, ${tracesSent} traces. Data is now being tracked by the observability platform.`;
+        statusText.className = 'progress-status complete';
+        headerDiv.textContent = `${scenario} Scenario Data Successfully Sent to Observability Platform`;
         
         // Reload dashboard stats and current tab
         setTimeout(() => {
@@ -1872,8 +2548,9 @@ curl -X POST http://localhost:3000/api/metrics \<br>
           if (document.getElementById('traces-tab').classList.contains('active')) loadTraces();
         }, 1500);
       } catch (error) {
-        messageDiv.textContent = `❌ Error sending scenario: ${error.message}`;
-        messageDiv.style.color = 'var(--error)';
+        statusText.textContent = `Error sending scenario: ${error.message}`;
+        statusText.className = 'progress-status';
+        statusText.style.color = 'var(--error)';
       }
     }
 
@@ -1937,11 +2614,16 @@ curl -X POST http://localhost:3000/api/metrics \<br>
       } else {
         // Find the button by text content
         document.querySelectorAll('.tab').forEach(btn => {
-          if (btn.textContent.includes(tabName === 'logs' ? '📋' : 
-                                       tabName === 'metrics' ? '📊' : 
-                                       tabName === 'traces' ? '🔍' : 
-                                       tabName === 'ai-analysis' ? '🤖' : 
-                                       tabName === 'cloudwatch' ? '☁️' : '')) {
+          const tabTexts = {
+            'logs': 'Logs',
+            'metrics': 'Metrics',
+            'traces': 'Traces',
+            'ai-analysis': 'AI Analysis',
+            'anomaly-timeline': 'Anomaly Timeline',
+            'cloudwatch': 'CloudWatch',
+            'api-docs': 'API Docs'
+          };
+          if (btn.textContent.includes(tabTexts[tabName] || '')) {
             btn.classList.add('active');
           }
         });
@@ -1952,27 +2634,194 @@ curl -X POST http://localhost:3000/api/metrics \<br>
       else if (tabName === 'metrics') loadMetrics();
       else if (tabName === 'traces') loadTraces();
       else if (tabName === 'ai-analysis') loadAIAnalysis();
+      else if (tabName === 'anomaly-timeline') loadAnomalyTimeline();
       else if (tabName === 'cloudwatch') loadCloudWatchLogs();
       
       // Restart chart polling for the new active tab
       startChartPolling();
     }
 
-    // Initialize dashboard (no automatic stats loading - user can refresh manually if needed)
-    // loadDashboardStats(); // Removed to prevent repeated calls
+    // Initialize dashboard - load stats once on page load
+    loadDashboardStats(); // Load stats from database on page load
     loadLogs();
     
     // Start chart polling for metrics and traces only (every 5 minutes)
     startChartPolling();
-    
+
     // Stop polling when page is hidden (to save resources)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         stopChartPolling();
+        stopAnomalyPolling();
       } else {
         startChartPolling();
+        startAnomalyPolling();
       }
     });
+
+    // ==================== TOAST NOTIFICATIONS ====================
+    // Track shown anomalies to avoid duplicate notifications
+    const shownAnomalyIds = new Set();
+    let anomalyPollingInterval = null;
+
+    /**
+     * Show a toast notification for an anomaly (AWS CloudWatch style)
+     */
+    function showAnomalyToast(anomaly) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      // Create toast element
+      const toast = document.createElement('div');
+      const severity = (anomaly.severity || 'medium').toLowerCase();
+      toast.className = `toast ${severity}`;
+
+      // Get icon text based on severity (no emoji)
+      const iconTexts = {
+        critical: 'CRITICAL',
+        high: 'HIGH',
+        medium: 'MEDIUM',
+        low: 'LOW'
+      };
+      const iconText = iconTexts[severity] || 'MEDIUM';
+
+      // Format time
+      const time = new Date(anomaly.timestamp).toLocaleTimeString();
+
+      toast.innerHTML = `
+        <div class="toast-icon">${iconText}</div>
+        <div class="toast-content">
+          <div class="toast-header">
+            <span class="toast-title">Anomaly Detected</span>
+            <span class="toast-severity">${severity.toUpperCase()}</span>
+          </div>
+          <div class="toast-message">${anomaly.message || 'Anomaly detected in system'}</div>
+          <div class="toast-metric">Metric: ${anomaly.metric || 'Unknown'}</div>
+          <div class="toast-time">${time}</div>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+      `;
+
+      // Add to container
+      container.appendChild(toast);
+
+      // Auto-remove after duration based on severity
+      const durations = {
+        critical: 10000, // 10 seconds
+        high: 8000,      // 8 seconds
+        medium: 6000,    // 6 seconds
+        low: 4000        // 4 seconds
+      };
+      const duration = durations[severity] || 6000;
+
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => {
+          if (toast.parentElement) {
+            toast.remove();
+          }
+        }, 300);
+      }, duration);
+
+      // Play sound for critical/high severity (optional)
+      if (severity === 'critical' || severity === 'high') {
+        // You can add a sound notification here if desired
+        console.log('Critical/High severity anomaly detected!');
+      }
+    }
+
+    /**
+     * Check for new anomalies and show toast notifications
+     */
+    async function checkForNewAnomalies() {
+      try {
+        // Fetch latest anomalies (last 2 minutes to catch new ones)
+        const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
+        const response = await fetch(
+          `${API_BASE_URL}/api/anomaly-timeline?limit=20&startTime=${twoMinutesAgo}`
+        );
+
+        if (!response.ok) {
+          console.warn('[Anomaly Polling] Failed to fetch anomalies:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+        
+        if (data.timeline && data.timeline.length > 0) {
+          // Sort by timestamp (newest first) for processing
+          const sortedAnomalies = [...data.timeline].sort((a, b) => {
+            return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+          });
+
+          // Check each anomaly to see if we've shown it before
+          sortedAnomalies.forEach(anomaly => {
+            // Use ID if available, otherwise use timestamp + metric + severity as unique identifier
+            const anomalyId = anomaly.id 
+              ? `id_${anomaly.id}` 
+              : `${anomaly.timestamp}_${anomaly.metric}_${anomaly.severity}`;
+            
+            if (!shownAnomalyIds.has(anomalyId)) {
+              // New anomaly detected!
+              shownAnomalyIds.add(anomalyId);
+              
+              // Only show toast for recent anomalies (within last 3 minutes)
+              const anomalyTime = new Date(anomaly.timestamp).getTime();
+              const threeMinutesAgo = Date.now() - 180000;
+              
+              if (anomalyTime >= threeMinutesAgo) {
+                console.log('New anomaly detected, showing toast:', {
+                  id: anomaly.id,
+                  metric: anomaly.metric,
+                  severity: anomaly.severity,
+                  timestamp: anomaly.timestamp
+                });
+                showAnomalyToast(anomaly);
+              }
+            }
+          });
+
+          // Clean up old IDs (keep only last 200 to prevent memory leak)
+          if (shownAnomalyIds.size > 200) {
+            const idsArray = Array.from(shownAnomalyIds);
+            const toRemove = idsArray.slice(0, idsArray.length - 200);
+            toRemove.forEach(id => shownAnomalyIds.delete(id));
+          }
+        }
+      } catch (error) {
+        console.error('[Anomaly Polling] Error checking for anomalies:', error);
+      }
+    }
+
+    /**
+     * Start polling for new anomalies
+     */
+    function startAnomalyPolling() {
+      if (anomalyPollingInterval) {
+        clearInterval(anomalyPollingInterval);
+      }
+      
+      // Check every 30 seconds for new anomalies
+      anomalyPollingInterval = setInterval(() => {
+        checkForNewAnomalies();
+      }, 30000); // 30 seconds
+
+      // Also check immediately on start
+      checkForNewAnomalies();
+    }
+
+    /**
+     * Stop polling for new anomalies
+     */
+    function stopAnomalyPolling() {
+      if (anomalyPollingInterval) {
+        clearInterval(anomalyPollingInterval);
+        anomalyPollingInterval = null;
+      }
+    }
+
+    // Start anomaly polling when page loads
+    startAnomalyPolling();
   </script>
 </body>
 </html>

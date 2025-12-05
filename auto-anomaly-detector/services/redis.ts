@@ -256,6 +256,46 @@ export async function getRecentSummaries(count: number = 12): Promise<any[]> {
   }
 }
 
+/**
+ * Store AI analysis in Redis (with 2-hour expiration)
+ */
+export async function storeAIAnalysis(analysis: {
+  provider: string;
+  analysis: string;
+  timestamp: string;
+  severity: string;
+  metric: string;
+  message: string;
+}): Promise<void> {
+  try {
+    if (!redisClient.isOpen) {
+      await redisClient.connect();
+    }
+
+    const timestamp = new Date().toISOString();
+    const key = `ai:analysis:${timestamp}`;
+    
+    // Store the analysis with 2-hour expiration
+    await redisClient.setEx(
+      key,
+      7200, // 2 hours
+      JSON.stringify(analysis)
+    );
+
+    // Also store as latest (overwrites previous)
+    await redisClient.setEx(
+      'ai:analysis:latest',
+      7200, // 2 hours
+      JSON.stringify(analysis)
+    );
+
+    console.log('✅ AI analysis stored in Redis');
+  } catch (error: any) {
+    console.error('❌ Failed to store AI analysis in Redis:', error.message);
+    // Don't throw - Redis failure shouldn't break the flow
+  }
+}
+
 // Close Redis connection
 export async function closeRedis(): Promise<void> {
   if (redisClient.isOpen) {
