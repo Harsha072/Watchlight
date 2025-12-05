@@ -67,8 +67,16 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', service: 'gateway' });
 });
 
-// Serve static files from public directory (for S3 deployment)
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from public directory
+// When compiled, __dirname is 'dist/', so public folder is at '../public'
+// When running with ts-node, __dirname is the gateway root, so 'public' is correct
+const publicPath = path.join(__dirname, '..', 'public');
+app.use(express.static(publicPath));
+
+// Serve index.html for root route and all non-API routes
+app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(publicPath, 'index.html'));
+});
 
 // Import routes
 import logsRoutes from './routes/logs';
@@ -90,9 +98,16 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404 handler
+// 404 handler - only for API routes, not for static files
+// For non-API routes, serve index.html (SPA fallback)
 app.use((req: Request, res: Response) => {
-  res.status(404).json({ error: 'Route not found' });
+  // If it's an API route (starts with /api), return 404 JSON
+  if (req.path.startsWith('/api')) {
+    res.status(404).json({ error: 'Route not found' });
+  } else {
+    // For all other routes, serve index.html (SPA routing)
+    res.sendFile(path.join(publicPath, 'index.html'));
+  }
 });
 
 // Initialize CloudWatch logging
