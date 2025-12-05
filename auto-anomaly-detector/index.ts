@@ -1,3 +1,4 @@
+import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { testConnection as testDbConnection, getRecentLogs, getRecentTraces, saveAIAnalysis, closeDatabase } from './services/database';
@@ -13,6 +14,9 @@ import { sendNotification } from './services/notify';
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const app = express();
+const PORT = process.env.PORT || 3007;
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 // Note: REDIS_URL is constructed in services/redis.ts from Upstash credentials
@@ -344,13 +348,30 @@ async function startAnomalyDetector() {
   }, intervalMs);
 }
 
-// Start the detector
-startAnomalyDetector().catch((error) => {
-  console.error('❌ Error starting auto-anomaly detector:', error);
-  if (error.stack) {
-    console.error('Stack trace:', error.stack);
-  }
-  process.exit(1);
+// Health check endpoint (required for Render web service)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'auto-anomaly-detector',
+    database: DATABASE_URL ? 'configured' : 'not configured',
+    redis: 'configured', // Redis is handled internally
+    intervalMinutes: DETECTION_INTERVAL_MINUTES,
+    historicalWindows: HISTORICAL_WINDOWS,
+    cooldownMinutes: ANOMALY_COOLDOWN_MINUTES,
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Auto-Anomaly Detector HTTP server listening on port ${PORT}`);
+  // Start the detection loop in the background
+  startAnomalyDetector().catch((error) => {
+    console.error('❌ Error starting auto-anomaly detector:', error);
+    if (error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown

@@ -1,3 +1,4 @@
+import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { testConnection as testDbConnection, getLogsData, getMetricsData, getTracesData, closeDatabase } from './services/database';
@@ -5,6 +6,9 @@ import { testConnection as testRedisConnection, storeAggregatedSummaries, closeR
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const app = express();
+const PORT = process.env.PORT || 3006;
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const REDIS_URL = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || 'redis://localhost:6379';
@@ -310,10 +314,26 @@ async function startAggregator() {
   }, intervalMs);
 }
 
-// Start the aggregator
-startAggregator().catch((error) => {
-  console.error('❌ Error starting cron aggregator:', error);
-  process.exit(1);
+// Health check endpoint (required for Render web service)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'cron-aggregator',
+    database: DATABASE_URL ? 'configured' : 'not configured',
+    redis: REDIS_URL ? 'configured' : 'not configured',
+    intervalMinutes: AGGREGATION_INTERVAL_MINUTES,
+    windowMinutes: AGGREGATION_WINDOW_MINUTES,
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Cron Aggregator HTTP server listening on port ${PORT}`);
+  // Start the aggregation loop in the background
+  startAggregator().catch((error) => {
+    console.error('❌ Error starting cron aggregator:', error);
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown

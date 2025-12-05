@@ -14,12 +14,14 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "pg": "^8.11.3",
     "redis": "^4.6.12",
     "aws-sdk": "^2.1500.0",
     "axios": "^1.6.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "typescript": "^5.3.3",
