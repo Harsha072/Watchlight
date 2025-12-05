@@ -39,9 +39,10 @@ interface MetricMessage {
 // Process a single metrics message
 // Returns true if message was processed, false if it should be skipped
 async function processMetricMessage(messageBody: string, messageAttributes?: any): Promise<boolean> {
+  let parsedMessage: any;
+  
   try {
     // Parse the message body (SNS wraps it, so we need to extract it)
-    let parsedMessage: any;
     
     // First, parse the SQS message body
     const sqsMessage = JSON.parse(messageBody);
@@ -136,7 +137,11 @@ async function processMetricMessage(messageBody: string, messageAttributes?: any
   } catch (error: any) {
     console.error('❌ Error processing metrics message:', error.message);
     console.error('   Raw message body:', messageBody.substring(0, 500)); // Show first 500 chars for debugging
-    console.error('   Full parsed message:', JSON.stringify(parsedMessage, null, 2));
+    if (parsedMessage) {
+      console.error('   Full parsed message:', JSON.stringify(parsedMessage, null, 2));
+    } else {
+      console.error('   Message parsing failed before parsedMessage was set');
+    }
     throw error;
   }
 }
