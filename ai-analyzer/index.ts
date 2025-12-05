@@ -1,3 +1,4 @@
+import express from 'express';
 import dotenv from 'dotenv';
 import { SQS } from 'aws-sdk';
 import axios from 'axios';
@@ -6,6 +7,9 @@ import { testConnection, initializeDatabase, saveAnalysis, closeDatabase } from 
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const app = express();
+const PORT = process.env.PORT || 3004;
 
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -445,10 +449,26 @@ async function processAnalysisLoop() {
   }
 }
 
-// Start processing
-processAnalysisLoop().catch((error) => {
-  console.error('❌ Error starting AI analyzer service:', error);
-  process.exit(1);
+// Health check endpoint (required for Render web service)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'ai-analyzer-service',
+    queueUrl: QUEUE_URL ? 'configured' : 'not configured',
+    database: DATABASE_URL ? 'configured' : 'not configured',
+    groqApiKey: GROQ_API_KEY ? 'configured' : 'not configured',
+    openaiApiKey: OPENAI_API_KEY ? 'configured' : 'not configured',
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 AI Analyzer service HTTP server listening on port ${PORT}`);
+  // Start the SQS polling in the background
+  processAnalysisLoop().catch((error) => {
+    console.error('❌ Error starting AI analyzer service:', error);
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown

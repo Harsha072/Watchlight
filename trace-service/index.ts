@@ -1,3 +1,4 @@
+import express from 'express';
 import dotenv from 'dotenv';
 import { SQS } from 'aws-sdk';
 import { testConnection, initializeDatabase, saveTrace, closeDatabase } from './services/database';
@@ -5,6 +6,9 @@ import path from 'path';
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const app = express();
+const PORT = process.env.PORT || 3003;
 
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -266,10 +270,24 @@ async function consumeTraces() {
   }
 }
 
-// Start consuming traces
-consumeTraces().catch((error) => {
-  console.error('❌ Error starting trace service:', error);
-  process.exit(1);
+// Health check endpoint (required for Render web service)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'trace-service',
+    queueUrl: QUEUE_URL ? 'configured' : 'not configured',
+    database: DATABASE_URL ? 'configured' : 'not configured',
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Trace service HTTP server listening on port ${PORT}`);
+  // Start the SQS polling in the background
+  consumeTraces().catch((error) => {
+    console.error('❌ Error starting trace service:', error);
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown

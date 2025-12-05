@@ -23,17 +23,22 @@ const corsOptions = {
       process.env.S3_BUCKET_URL,        // S3 bucket URL (e.g., https://your-bucket.s3.amazonaws.com)
       process.env.CLOUDFRONT_URL,        // CloudFront distribution URL
       process.env.FRONTEND_URL,         // Custom frontend URL
+      process.env.GATEWAY_URL,          // Render gateway URL
     ].filter(Boolean); // Remove undefined values
     
-    // For S3/CloudFront deployment, allow all origins for demo purposes
-    // In production, you can restrict this to specific domains
-    // Allow if origin is in allowed list, localhost, or S3/CloudFront domain
+    // Allow Render domains, localhost, S3/CloudFront, or allowed origins
+    const isRenderDomain = origin.includes('.onrender.com') || 
+                          origin.includes('.render.com');
+    const isLocalhost = origin.includes('localhost') || 
+                       origin.includes('127.0.0.1');
+    const isS3CloudFront = origin.includes('.s3.') ||
+                           origin.includes('.s3-website-') ||
+                           origin.includes('cloudfront.net');
+    
     if (allowedOrigins.includes(origin) || 
-        origin.includes('localhost') || 
-        origin.includes('127.0.0.1') ||
-        origin.includes('.s3.') ||
-        origin.includes('.s3-website-') ||
-        origin.includes('cloudfront.net')) {
+        isRenderDomain ||
+        isLocalhost ||
+        isS3CloudFront) {
       callback(null, true);
     } else {
       // For demo purposes, allow all origins

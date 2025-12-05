@@ -1,3 +1,4 @@
+import express from 'express';
 import dotenv from 'dotenv';
 import { SQS } from 'aws-sdk';
 import axios from 'axios';
@@ -5,6 +6,9 @@ import path from 'path';
 
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const app = express();
+const PORT = process.env.PORT || 3005;
 
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -343,10 +347,25 @@ async function processNotifications() {
   }
 }
 
-// Start processing notifications
-processNotifications().catch((error) => {
-  console.error('❌ Error starting notify service:', error);
-  process.exit(1);
+// Health check endpoint (required for Render web service)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'notify-service',
+    queueUrl: QUEUE_URL ? 'configured' : 'not configured',
+    slack: SLACK_WEBHOOK_URL ? 'configured' : 'not configured',
+    email: SMTP_HOST && NOTIFICATION_EMAIL ? 'configured' : 'not configured',
+  });
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Notify service HTTP server listening on port ${PORT}`);
+  // Start the SQS polling in the background
+  processNotifications().catch((error) => {
+    console.error('❌ Error starting notify service:', error);
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown
