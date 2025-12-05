@@ -49,6 +49,18 @@ async function ensureConnected() {
   }
 }
 
+// Test Redis connection
+export async function testConnection(): Promise<boolean> {
+  try {
+    await ensureConnected();
+    await redisClient.ping();
+    return true;
+  } catch (error: any) {
+    console.error('❌ Redis connection test failed:', error.message);
+    return false;
+  }
+}
+
 interface AggregatedSummary {
   timestamp: string;
   windowMinutes: number;

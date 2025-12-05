@@ -211,6 +211,7 @@ async function consumeTraces() {
   }
 
   // Test and verify database connection
+  console.log('🔍 Trace Service: Testing database connection...');
   const maxRetries = 5;
   let retries = 0;
   let connected = false;
@@ -227,13 +228,15 @@ async function consumeTraces() {
   }
 
   if (!connected) {
-    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    console.error('❌ Trace Service: Failed to connect to PostgreSQL after multiple retries');
     console.error('   Please check:');
     console.error('   1. Docker container is running: docker-compose ps');
     console.error('   2. DATABASE_URL is correct in .env file');
     console.error('   3. PostgreSQL is healthy: docker-compose logs postgres');
     process.exit(1);
   }
+  
+  console.log('✅ Trace Service: Connected to PostgreSQL database');
 
   // Initialize database tables
   try {

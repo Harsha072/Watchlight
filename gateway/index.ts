@@ -115,7 +115,28 @@ initializeCloudWatch().catch((err) => {
   console.warn('⚠️ CloudWatch initialization warning:', err.message);
 });
 
-app.listen(PORT, () => {
+// Test Redis connection on startup
+async function testConnections() {
+  try {
+    // Test Redis connection
+    const { testConnection: testRedisConnection } = await import('./services/redis');
+    console.log('🔍 Gateway: Testing Redis connection...');
+    const redisConnected = await testRedisConnection();
+    if (redisConnected) {
+      const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || 'not configured';
+      const isUpstash = redisUrl.includes('upstash.io') || !!process.env.UPSTASH_REDIS_REST_TOKEN;
+      console.log(`✅ Gateway: Connected to Redis (${isUpstash ? 'Upstash' : 'Local/Other'})`);
+    } else {
+      console.error('❌ Gateway: Failed to connect to Redis');
+    }
+  } catch (error: any) {
+    console.error('❌ Gateway: Redis connection error:', error.message);
+  }
+}
+
+app.listen(PORT, async () => {
   console.log(`Gateway service running on port ${PORT}`);
+  // Test connections after server starts
+  await testConnections();
 });
 

@@ -379,6 +379,7 @@ async function processAnalysisLoop() {
   }
 
   // Test and verify database connection
+  console.log('🔍 AI Analyzer Service: Testing database connection...');
   const maxRetries = 5;
   let retries = 0;
   let connected = false;
@@ -395,9 +396,11 @@ async function processAnalysisLoop() {
   }
 
   if (!connected) {
-    console.error('❌ Failed to connect to PostgreSQL after multiple retries');
+    console.error('❌ AI Analyzer Service: Failed to connect to PostgreSQL after multiple retries');
     process.exit(1);
   }
+  
+  console.log('✅ AI Analyzer Service: Connected to PostgreSQL database');
 
   // Initialize database tables
   try {
