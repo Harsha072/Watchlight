@@ -15,6 +15,16 @@ The live dashboard includes:
 - Anomaly timeline view
 - Interactive charts and analytics
 
+## 📸 Screenshots
+
+### Dashboard Overview
+![Watchlight Dashboard](images/screenshots/watchlight-1.jpg)
+*Real-time observability dashboard with metrics, logs, and traces visualization*
+
+### Features & Analytics
+![Watchlight Features](images/screenshots/watchlight-2.jpg)
+*AI-powered analysis, anomaly detection, and scenario testing interface*
+
 ## Project Overview
 
 **Watchlight** is an API Observability Mesh that solves the critical problem of fragmented observability data across distributed systems. Instead of juggling multiple monitoring tools and dashboards, developers get a unified platform that automatically collects, analyzes, and alerts on API behavior using AI-powered insights.
