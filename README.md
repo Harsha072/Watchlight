@@ -2,6 +2,19 @@
 
 A comprehensive microservices-based observability platform that aggregates metrics, logs, and traces from your APIs, analyzes them with AI, and provides intelligent alerts and insights.
 
+## 🌐 Live Demo
+
+**Try it now!** The platform is live and deployed on Render:
+
+🔗 **[https://watchlight-gateway.onrender.com/](https://watchlight-gateway.onrender.com/)**
+
+The live dashboard includes:
+- Real-time metrics, logs, and traces visualization
+- AI-powered anomaly detection
+- Scenario testing capabilities (Normal, High Traffic, Error Spike, Slow Response, Anomaly Detection)
+- Anomaly timeline view
+- Interactive charts and analytics
+
 ## Project Overview
 
 **Watchlight** is an API Observability Mesh that solves the critical problem of fragmented observability data across distributed systems. Instead of juggling multiple monitoring tools and dashboards, developers get a unified platform that automatically collects, analyzes, and alerts on API behavior using AI-powered insights.
@@ -256,10 +269,10 @@ SNS Topic ---> SQS Queues
    .\stop-all.ps1
    ```
 
-7. **Access the application**
-   - Frontend: http://localhost:3000
-   - Gateway: http://localhost:3000 (or configured port)
-   - LocalStack: http://localhost:4566
+7. **Access the application locally**
+   - **Local Frontend**: http://localhost:3000
+   - **Local Gateway**: http://localhost:3000 (or configured port)
+   - **LocalStack**: http://localhost:4566
 
 ## Environment Variables
 
@@ -311,38 +324,34 @@ These are automatically set up by the LocalStack setup script:
 
 ## Future Steps
 
-### Phase 1: Core Implementation
-- [ ] Implement Gateway API routes for receiving observability data
-- [ ] Add SNS message publishing in Gateway
-- [ ] Implement SQS consumers in Metrics, Logs, and Trace services
-- [ ] Set up PostgreSQL schema and database connections
-- [ ] Implement data storage logic in each service
 
-### Phase 2: AI Integration
-- [ ] Integrate Groq API for fast analysis
-- [ ] Integrate Anthropic Claude API for deep insights
-- [ ] Implement anomaly detection algorithms
-- [ ] Create analysis result storage and retrieval
+## 🚀 Deployment
 
-### Phase 3: Notification System
-- [ ] Implement Slack webhook integration
-- [ ] Implement SMTP email sending
-- [ ] Add notification templates and formatting
-- [ ] Implement notification routing logic
+### Production Deployment
 
-### Phase 4: Frontend Dashboard
-- [ ] Create metrics visualization components
-- [ ] Build logs viewer with search and filtering
-- [ ] Implement trace explorer with timeline view
-- [ ] Add AI insights display
-- [ ] Create alert management UI
+Watchlight is currently deployed and running on **Render.com**:
 
-### Phase 5: Advanced Features
-- [ ] Add authentication and authorization
-- [ ] Implement rate limiting and throttling
-- [ ] Add data retention policies
-- [ ] Create API for external integrations
-- [ ] Add performance optimizations and caching
+- **Live Dashboard**: [https://watchlight-gateway.onrender.com/](https://watchlight-gateway.onrender.com/)
+- **Status**: Production Ready ✅
+- **All Services**: Deployed as web services with health check endpoints
+
+### Deployment Architecture
+
+All services have been converted to web services with `/health` endpoints for Render's health checks:
+- Gateway Service (serves frontend + API)
+- Logs Service
+- Metrics Service
+- Trace Service
+- AI Analyzer Service
+- Notify Service
+- Cron Aggregator Service
+- Auto-Anomaly Detector Service
+
+Each service:
+- Has a health check endpoint at `/health`
+- Uses environment variables for configuration
+- Connects to PostgreSQL (Render PostgreSQL) and Redis (Upstash)
+- Communicates via AWS SNS/SQS
 
 ## Development Notes
 
@@ -350,15 +359,8 @@ These are automatically set up by the LocalStack setup script:
 - Services communicate via AWS SNS/SQS for decoupling
 - LocalStack is used for local AWS service emulation
 - Each service is independently deployable
-- The frontend uses Next.js with TypeScript
+- The frontend is served as static files from the Gateway service
 
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Ensure all services build successfully (`npm run build`)
-4. Test locally with docker-compose
-5. Submit a pull request
 
 ## License
 
