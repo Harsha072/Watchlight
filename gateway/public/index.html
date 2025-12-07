@@ -983,6 +983,7 @@
         </div>
 
         <div class="progress-status" id="progressStatus">Initializing...</div>
+        <button onclick="clearScenarioProgress()" style="margin-top: 10px; padding: 8px 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;">Clear Progress</button>
       </div>
     </div>
 
@@ -2366,7 +2367,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
 
     // Send scenario test data
     // Helper function to update progress display
-    function updateProgressDisplay(stats) {
+    function updateProgressDisplay(stats, scenarioName = null, statusText = null) {
       document.getElementById('statLogs').textContent = stats.logs || 0;
       document.getElementById('statErrors').textContent = stats.errors || 0;
       document.getElementById('statWarnings').textContent = stats.warnings || 0;
@@ -2379,6 +2380,66 @@ curl -X POST http://localhost:3000/api/metrics \<br>
       document.getElementById('breakdownWarn').textContent = stats.warnings || 0;
       document.getElementById('breakdownInfo').textContent = stats.info || 0;
       document.getElementById('breakdownDebug').textContent = stats.debug || 0;
+      
+      // Save to localStorage for persistence (only if we have meaningful data)
+      if (scenarioName !== null || statusText !== null || (stats.logs + stats.metrics + stats.traces) > 0) {
+        const progressData = {
+          stats: stats,
+          scenarioName: scenarioName,
+          statusText: statusText,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('watchlight_scenario_progress', JSON.stringify(progressData));
+      }
+    }
+
+    // Load and restore scenario progress from localStorage
+    function loadScenarioProgress() {
+      try {
+        const savedData = localStorage.getItem('watchlight_scenario_progress');
+        if (savedData) {
+          const progressData = JSON.parse(savedData);
+          const statusDiv = document.getElementById('scenarioStatus');
+          const headerDiv = document.getElementById('scenarioHeader');
+          const statusText = document.getElementById('progressStatus');
+          
+          // Show the progress display
+          statusDiv.style.display = 'block';
+          
+          // Restore stats (without saving again to avoid infinite loop)
+          document.getElementById('statLogs').textContent = progressData.stats.logs || 0;
+          document.getElementById('statErrors').textContent = progressData.stats.errors || 0;
+          document.getElementById('statWarnings').textContent = progressData.stats.warnings || 0;
+          document.getElementById('statInfo').textContent = progressData.stats.info || 0;
+          document.getElementById('statDebug').textContent = progressData.stats.debug || 0;
+          document.getElementById('statMetrics').textContent = progressData.stats.metrics || 0;
+          document.getElementById('statTraces').textContent = progressData.stats.traces || 0;
+          
+          document.getElementById('breakdownError').textContent = progressData.stats.errors || 0;
+          document.getElementById('breakdownWarn').textContent = progressData.stats.warnings || 0;
+          document.getElementById('breakdownInfo').textContent = progressData.stats.info || 0;
+          document.getElementById('breakdownDebug').textContent = progressData.stats.debug || 0;
+          
+          // Restore header and status text if available
+          if (progressData.scenarioName) {
+            headerDiv.textContent = progressData.scenarioName;
+          }
+          if (progressData.statusText) {
+            statusText.textContent = progressData.statusText;
+            statusText.className = 'progress-status complete';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading scenario progress:', error);
+      }
+    }
+
+    // Clear scenario progress from localStorage and hide display
+    function clearScenarioProgress() {
+      localStorage.removeItem('watchlight_scenario_progress');
+      const statusDiv = document.getElementById('scenarioStatus');
+      statusDiv.style.display = 'none';
+      updateProgressDisplay({ logs: 0, errors: 0, warnings: 0, info: 0, debug: 0, metrics: 0, traces: 0 }, null, null);
     }
 
     async function sendScenario(scenario) {
@@ -2388,7 +2449,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
       
       // Reset and show progress display
       statusDiv.style.display = 'block';
-      updateProgressDisplay({ logs: 0, errors: 0, warnings: 0, info: 0, debug: 0, metrics: 0, traces: 0 });
+      updateProgressDisplay({ logs: 0, errors: 0, warnings: 0, info: 0, debug: 0, metrics: 0, traces: 0 }, `Sending ${scenario} Scenario Data to Observability Platform`, 'Generating test data...');
       headerDiv.textContent = `Sending ${scenario} Scenario Data to Observability Platform`;
       statusText.textContent = 'Generating test data...';
       statusText.className = 'progress-status active';
@@ -2449,6 +2510,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
             
             // Update display every 5 logs or on last log
             if (logsSent % 5 === 0 || logsSent === logs.length) {
+              const currentStatus = `Sent ${logsSent}/${logs.length} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug)...`;
               updateProgressDisplay({
                 logs: logsSent,
                 errors: errorsSent,
@@ -2457,8 +2519,8 @@ curl -X POST http://localhost:3000/api/metrics \<br>
                 debug: debugSent,
                 metrics: 0,
                 traces: 0
-              });
-              statusText.textContent = `Sent ${logsSent}/${logs.length} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug)...`;
+              }, headerDiv.textContent, currentStatus);
+              statusText.textContent = currentStatus;
             }
           } catch (err) {
             console.error('Failed to send log:', err);
@@ -2479,6 +2541,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
             
             // Update display every 5 metrics or on last metric
             if (metricsSent % 5 === 0 || metricsSent === metrics.length) {
+              const currentStatus = `Sent ${logsSent} logs, ${metricsSent}/${metrics.length} metrics...`;
               updateProgressDisplay({
                 logs: logsSent,
                 errors: errorsSent,
@@ -2487,8 +2550,8 @@ curl -X POST http://localhost:3000/api/metrics \<br>
                 debug: debugSent,
                 metrics: metricsSent,
                 traces: 0
-              });
-              statusText.textContent = `Sent ${logsSent} logs, ${metricsSent}/${metrics.length} metrics...`;
+              }, headerDiv.textContent, currentStatus);
+              statusText.textContent = currentStatus;
             }
           } catch (err) {
             console.error('Failed to send metric:', err);
@@ -2509,6 +2572,7 @@ curl -X POST http://localhost:3000/api/metrics \<br>
             
             // Update display every 5 traces or on last trace
             if (tracesSent % 5 === 0 || tracesSent === traces.length) {
+              const currentStatus = `Sent ${logsSent} logs, ${metricsSent} metrics, ${tracesSent}/${traces.length} traces...`;
               updateProgressDisplay({
                 logs: logsSent,
                 errors: errorsSent,
@@ -2517,8 +2581,8 @@ curl -X POST http://localhost:3000/api/metrics \<br>
                 debug: debugSent,
                 metrics: metricsSent,
                 traces: tracesSent
-              });
-              statusText.textContent = `Sent ${logsSent} logs, ${metricsSent} metrics, ${tracesSent}/${traces.length} traces...`;
+              }, headerDiv.textContent, currentStatus);
+              statusText.textContent = currentStatus;
             }
           } catch (err) {
             console.error('Failed to send trace:', err);
@@ -2526,6 +2590,9 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         }
 
         // Final update
+        const finalStatusText = `Complete! Sent ${logsSent} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug), ${metricsSent} metrics, ${tracesSent} traces. Data is now being tracked by the observability platform.`;
+        const finalHeaderText = `${scenario} Scenario Data Successfully Sent to Observability Platform`;
+        
         updateProgressDisplay({
           logs: logsSent,
           errors: errorsSent,
@@ -2534,11 +2601,11 @@ curl -X POST http://localhost:3000/api/metrics \<br>
           debug: debugSent,
           metrics: metricsSent,
           traces: tracesSent
-        });
+        }, finalHeaderText, finalStatusText);
         
-        statusText.textContent = `Complete! Sent ${logsSent} logs (${errorsSent} errors, ${warningsSent} warnings, ${infoSent} info, ${debugSent} debug), ${metricsSent} metrics, ${tracesSent} traces. Data is now being tracked by the observability platform.`;
+        statusText.textContent = finalStatusText;
         statusText.className = 'progress-status complete';
-        headerDiv.textContent = `${scenario} Scenario Data Successfully Sent to Observability Platform`;
+        headerDiv.textContent = finalHeaderText;
         
         // Reload dashboard stats and current tab
         setTimeout(() => {
@@ -2553,6 +2620,9 @@ curl -X POST http://localhost:3000/api/metrics \<br>
         statusText.style.color = 'var(--error)';
       }
     }
+
+    // Load saved scenario progress on page load
+    loadScenarioProgress();
 
     // Auto-refresh polling for charts and data (every 30 seconds for testing, change to 300000 for production)
     let chartRefreshInterval = null;

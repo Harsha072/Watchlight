@@ -34,10 +34,15 @@ const recentAnomalies = new Map<string, number>();
 
 /**
  * Generate a simple key for an anomaly to track duplicates
- * Format: "metric:severity" (e.g., "error_rate:high")
+ * Format: "metric:severity:timestamp" (e.g., "error_rate:high:2025-01-24T14:30:00")
+ * Includes timestamp to prevent re-analyzing the same historical data
  */
-function getAnomalyKey(anomaly: { metric: string; severity: string }): string {
-  return `${anomaly.metric}:${anomaly.severity}`;
+function getAnomalyKey(anomaly: { metric: string; severity: string }, summaryTimestamp: string): string {
+  // Extract date and hour from timestamp to group anomalies by hour
+  // This prevents analyzing the same historical data repeatedly
+  const timestamp = new Date(summaryTimestamp);
+  const hourKey = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')}T${String(timestamp.getHours()).padStart(2, '0')}`;
+  return `${anomaly.metric}:${anomaly.severity}:${hourKey}`;
 }
 
 /**
@@ -106,6 +111,21 @@ async function runAnomalyDetection(): Promise<void> {
     console.log(`   📅 Current window: ${currentSummary.timestamp}`);
     console.log(`   📊 Historical windows: ${previousSummaries.length} (for comparison)`);
 
+    // Check if the current summary is actually recent (within last 10 minutes)
+    // This prevents analyzing stale data from Redis
+    const currentSummaryTime = new Date(currentSummary.timestamp);
+    const now = new Date();
+    const minutesSinceSummary = (now.getTime() - currentSummaryTime.getTime()) / (1000 * 60);
+    
+    if (minutesSinceSummary > 10) {
+      console.log(`⚠️  Current summary is ${minutesSinceSummary.toFixed(1)} minutes old (older than 10 minutes)`);
+      console.log(`   This indicates no new data is being generated. Skipping anomaly detection to avoid re-analyzing stale data.`);
+      console.log(`   The system will resume detection when new data arrives.\n`);
+      return;
+    }
+    
+    console.log(`   ✅ Current summary is recent (${minutesSinceSummary.toFixed(1)} minutes old)`);
+
     // Step 2: Run statistical anomaly detection
     console.log(`\n📊 Running statistical anomaly detection...`);
     const detectionStartTime = Date.now();
@@ -128,8 +148,8 @@ async function runAnomalyDetection(): Promise<void> {
     console.log(`   Message: ${anomaly.message}`);
     console.log(`   Current: ${anomaly.currentValue}, Expected: ${anomaly.expectedRange.min} - ${anomaly.expectedRange.max}`);
 
-    // Generate a simple key for this anomaly (e.g., "error_rate:high")
-    const anomalyKey = getAnomalyKey(anomaly);
+    // Generate a simple key for this anomaly (includes timestamp to prevent re-analysis)
+    const anomalyKey = getAnomalyKey(anomaly, currentSummary.timestamp);
 
     // Check if we've analyzed this anomaly recently
     if (wasAnalyzedRecently(anomalyKey)) {

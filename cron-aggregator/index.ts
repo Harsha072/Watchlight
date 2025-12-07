@@ -66,8 +66,11 @@ interface AggregatedSummary {
   }>;
 }
 
+// Track the last aggregation timestamp to detect if we're aggregating stale data
+let lastAggregationTimestamp: string | null = null;
+
 // Aggregate data from PostgreSQL
-async function aggregateData(): Promise<AggregatedSummary> {
+async function aggregateData(): Promise<AggregatedSummary | null> {
   console.log(`\n📊 Starting aggregation for last ${AGGREGATION_WINDOW_MINUTES} minutes...`);
   
   const timestamp = new Date().toISOString();
@@ -222,6 +225,24 @@ async function aggregateData(): Promise<AggregatedSummary> {
   console.log(`   - Slow endpoints: ${slowEndpoints.length}`);
   console.log(`   - Anomalous spikes: ${anomalousSpikes.length}`);
   
+  // Check if we're aggregating stale data (same data as last aggregation)
+  if (lastAggregationTimestamp) {
+    const lastTimestamp = new Date(lastAggregationTimestamp);
+    const currentTimestamp = new Date(timestamp);
+    const minutesSinceLastAgg = (currentTimestamp.getTime() - lastTimestamp.getTime()) / (1000 * 60);
+    
+    // If the data looks identical (no new logs/metrics/traces) and it's been more than 10 minutes since last aggregation
+    // This indicates we're aggregating stale data
+    const totalDataPoints = logsSummary.totalCount + metricsSummary.length + tracesSummary.length;
+    if (totalDataPoints === 0 && minutesSinceLastAgg > 10) {
+      console.log(`⚠️  No new data detected in the last ${AGGREGATION_WINDOW_MINUTES} minutes`);
+      console.log(`   This aggregation contains stale data. Skipping storage to Redis to prevent re-analysis.`);
+      lastAggregationTimestamp = timestamp; // Update timestamp but don't store
+      return null; // Return null to indicate we should skip storing
+    }
+  }
+  
+  lastAggregationTimestamp = timestamp;
   return summary;
 }
 
@@ -231,10 +252,13 @@ async function runAggregation(): Promise<void> {
     // Aggregate data from PostgreSQL
     const summary = await aggregateData();
     
-    // Store in Redis
-    await storeAggregatedSummaries(summary);
-    
-    console.log('✅ Aggregation cycle complete\n');
+    // Only store if summary is not null (null means stale data, skip storage)
+    if (summary) {
+      await storeAggregatedSummaries(summary);
+      console.log('✅ Aggregation cycle complete\n');
+    } else {
+      console.log('⏸️  Aggregation skipped (stale data detected)\n');
+    }
   } catch (error: any) {
     console.error('❌ Error during aggregation:', error.message);
     console.error(error.stack);
