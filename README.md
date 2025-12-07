@@ -200,6 +200,31 @@ SNS Topic ---> SQS Queues
 
 6. **Start services**
    
+   **Option A: Start all services at once (Recommended)**
+   
+   Using npm script (single terminal, all output):
+   ```bash
+   npm install  # Install concurrently if not already installed
+   npm run start:services
+   ```
+   
+   Using Node.js script (single terminal):
+   ```bash
+   npm run start:all
+   ```
+   
+   Using PowerShell (Windows - separate windows):
+   ```powershell
+   .\start-all.ps1
+   ```
+   
+   Using Batch file (Windows - separate windows):
+   ```cmd
+   start-all.bat
+   ```
+   
+   **Option B: Start services individually**
+   
    In separate terminal windows:
    ```bash
    # Terminal 1: Gateway
@@ -222,6 +247,13 @@ SNS Topic ---> SQS Queues
    
    # Terminal 7: Frontend
    cd frontend && npm run dev
+   ```
+   
+   **Stop all services:**
+   ```bash
+   npm run stop:all
+   # Or on Windows PowerShell:
+   .\stop-all.ps1
    ```
 
 7. **Access the application**
